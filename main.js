@@ -1067,12 +1067,12 @@ class HabitTodayView extends ItemView {
         btn.addEventListener('click', () => this.plugin.toggleCheckin(h.id, key, false)); // 再点一次可撤销
       } else if (h.inputMode === 'timer') {
         // 计时器：正向计时 / 倒计时（单位分钟）
-        const t = (this.plugin._timers && this.plugin._timers[h.id]) || null;
-        const running = !!(t && t.start);
+        const tm = (this.plugin._timers && this.plugin._timers[h.id]) || null;
+        const running = !!(tm && tm.start);
         const isCd = h.timerType === 'countdown';
         info.createSpan({ cls: 'habit-today-desc', text: t('当日 {c}/{g} · {m}', { c: fmt(cur), g: fmt(goal), m: isCd ? t('倒计时') : t('正向计时') }) });
         if (running) {
-          const el = ctl.createSpan({ cls: 'habit-timer-elapsed', text: this.fmtTimer(t) });
+          const el = ctl.createSpan({ cls: 'habit-timer-elapsed', text: this.fmtTimer(tm) });
           el.dataset.habit = h.id;
           ctl.createEl('button', { cls: 'habit-btn habit-step-btn', text: t('结束') })
             .addEventListener('click', () => this.plugin.stopTimer(h.id));
@@ -1385,7 +1385,7 @@ class HabitFormModal extends Modal {
         target: levels.length ? levels[levels.length - 1].max : form.target,
         levels,
         step: Math.max(0.1, parseFloat(form.step) || 1),
-        unit: form.inputMode === 'timer' ? '分钟' : (form.unit || ''),
+        unit: form.inputMode === 'timer' ? timerUnit() : (form.unit || ''),
         inputMode: form.inputMode === 'manual' ? 'manual' : form.inputMode === 'timer' ? 'timer' : 'fixed',
         timerType: form.inputMode === 'timer' ? (form.timerType || 'stopwatch') : null,
         weekly: form.weekly,
@@ -1569,7 +1569,8 @@ class HabitCheckinSettingTab extends PluginSettingTab {
     const to = sorted.findIndex(x => x.id === toId);
     if (from < 0 || to < 0) return;
     const [moved] = sorted.splice(from, 1);
-    sorted.splice(to, 0, moved);
+    const insertAt = from < to ? to - 1 : to; // 向下拖时目标索引已前移一位，需修正
+    sorted.splice(insertAt, 0, moved);
     sorted.forEach((x, i) => { x.sort = i; });
     await this.plugin.saveData(data);
     this.plugin.emitDataChange();
@@ -1589,3 +1590,5 @@ class HabitCheckinSettingTab extends PluginSettingTab {
 }
 
 module.exports = HabitCheckinPlugin;
+
+/* nosourcemap */
