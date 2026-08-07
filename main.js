@@ -413,12 +413,12 @@ class HabitCheckinPlugin extends Plugin {
     this._setupRibbonIcons();
 
     this.addCommand({
-      id: 'open-habit-checkin',
+      id: 'open-main-view',
       name: '打开习惯打卡统计',
       callback: () => this.activateView(),
     });
     this.addCommand({
-      id: 'checkin-today',
+      id: 'open-today-view',
       name: '今日打卡（右侧栏）',
       callback: () => this.activateTodayView(),
     });
