@@ -1,57 +1,99 @@
 # Habit Check-in
 
-Check in habits from the right sidebar with one click, track streaks and yearly heatmaps, and embed habit heatmaps into any note.
+> An Obsidian plugin: **one-click check-in** from the right sidebar, supporting **single / goal / timer** check-in modes, with **GitHub-style heatmaps**, **intensity-level colors**, **Calendar plugin integration**, and **embeddable heatmaps** in any note.
 
-## Features
+![Main page](assets/main-page.png)
 
-- **One-click check-in** from the right sidebar — click again to undo
-- **Calendar integration** — dots on checked days; click a date to switch the check-in date
-- **Three input modes**: fixed step, manual amount, timer (stopwatch / countdown)
-- **Intensity levels** with 6 preset color palettes
-- **Stats**: current streak, longest streak, monthly completion, total check-ins
-- **Yearly heatmap** (GitHub style): full year / 3 months / current month
-- **Embed** any habit's heatmap into a note
-- **Light & dark theme** support via Obsidian CSS variables
+## ✨ Features
 
-## Installation
+### 1. Multiple check-in modes
 
-### Option 1: BRAT (recommended for testing)
+**① Single check-in**
+Set a daily check-in item; click the button to toggle between *checked* / *unchecked*.
 
-1. Install the [BRAT](obsidian://show-plugin?id=obsidian42-brat) community plugin.
-2. Command palette → `BRAT: Add a beta plugin for testing` → paste `https://github.com/NotStudyToday/obsidian-habit-check-in`.
-3. Enable **Habit Check-in** in Settings → Community plugins.
+![Single check-in](assets/checkin-single.gif)
 
-### Option 2: Manual
+**② Goal check-in**
+Set a daily goal, e.g. *"drink 1000 ml of water every day"*. Customize the amount added per check-in and click **+** to accumulate, or manually enter a single amount.
 
-1. Download the latest [release](https://github.com/NotStudyToday/obsidian-habit-check-in/releases).
-2. Unzip and place the `habit-checkin` folder into `<your-vault>/.obsidian/plugins/`.
-3. Reload Obsidian and enable **Habit Check-in** in Settings → Community plugins.
+![Goal check-in](assets/checkin-target.gif)
 
-## Usage
+**③ Timer check-in**
+Supports **count-up** (stopwatch) and **countdown** modes. For countdown you can set a custom duration (e.g. 45 minutes); click **Start** to begin, and the elapsed time is auto-recorded when it ends.
+
+![Timer check-in](assets/checkin-timer.gif)
+
+### 2. Calendar plugin integration
+
+After a check-in, the date is automatically marked with a dot in the Calendar plugin — at a glance.
+
+![Calendar integration](assets/calendar-link.png)
+
+### 3. Intensity-level colors
+
+Add your own intensity levels, each with a value range and color; the heatmap is color-coded by intensity automatically.
+
+![Intensity levels](assets/intensity-levels.png)
+
+## 📦 Installation
+
+> Prerequisite: Obsidian **1.2.0** or later.
+
+### Option 1: Community marketplace (recommended, easiest)
+
+1. Open Obsidian → Settings ⚙️ → **Community plugins**
+2. Turn off **Restricted mode** (if enabled), then click **Browse**
+3. Search for **`Habit Check-in`**
+4. Click **Install**, then **enable** it in the *Installed plugins* list
+5. (Optional) Click the ⚙️ icon next to the plugin name to open its settings
+
+### Option 2: BRAT (early access to new versions)
+
+For users who want to try new features as soon as they ship.
+
+1. Install the community plugin [BRAT](obsidian://show-plugin?id=obsidian42-brat)
+2. Command palette (Ctrl/Cmd + P) → `BRAT: Add a beta plugin for testing`
+3. Paste the repo URL: `https://github.com/NotStudyToday/obsidian-habit-check-in`
+4. Back in the Community plugins list, enable **Habit Check-in**
+
+### Option 3: Manual install
+
+1. Download the latest version from GitHub [Releases](https://github.com/NotStudyToday/obsidian-habit-check-in/releases)
+2. Unzip to get the `habit-checkin` folder (containing `main.js`, `manifest.json`, `styles.css`)
+3. Place the folder into `.obsidian/plugins/` in your vault root
+4. Restart Obsidian (or press Ctrl/Cmd + R to reload), then enable it in Community plugins
+
+## 🚀 Usage
 
 ### Create a habit
 
-Settings → Habit Check-in → **+ New habit**. Configure:
+1. Settings → **Habit Check-in** → **+ New habit**
 
-- Name, emoji icon, color.
-- Start/end date (or "ongoing"), weekly plan (e.g. Mon/Wed/Fri).
-- Daily target, step size, unit.
-- **Intensity levels**: colored by count ranges, with one-click preset palettes.
-- Input mode: fixed / manual / timer.
+![Create habit](assets/create-habit-1.png)
 
-### Right-sidebar check-in
+2. Fill in the basic info: **name**, **icon** (Emoji supported), **check-in mode**, **amount per check-in**, etc.
 
-- Click the `check-square` icon in the left ribbon to open the today view.
-- Switch the date to backfill check-ins; the header shows daily progress.
-- Timer habits: stopwatch — "Start / Stop"; countdown — enter minutes, auto-records when finished.
+![Basic info](assets/create-habit-2.png)
 
-### Main view
+3. For intensity levels: toggle on **Intensity levels** and set the **level**, **value**, and **color** for each.
 
-Click the `calendar-check` icon in the left ribbon to see each habit's yearly heatmap and stats.
+![Intensity settings](assets/create-habit-3.png)
 
-### Embed in notes
+4. Click **Save** and you're done — check in from the **right sidebar** from now on.
 
-In the settings page, click the copy icon on a habit row, then paste into any note:
+![Check-in view](assets/create-habit-4.png)
+
+### View statistics
+
+Click the **calendar icon** in the left ribbon to open the main view, showing each habit's **yearly heatmap** and **streak statistics**. The heatmap supports **full year / 3 months / current month**.
+
+### Backfill a missed day
+
+Forgot to check in? Switch the **date to a past day** at the top of the right sidebar and backfill that day's check-in.
+
+## 📝 Embed a heatmap into a note
+
+Click the **copy icon** on a habit row in the settings page, then paste the code block into any note:
 
 ````markdown
 ```habit-heatmap
@@ -59,29 +101,152 @@ habitId=xxxxxxxx
 ```
 ````
 
-Optional parameters:
-
-| Parameter | Values | Description |
-|-----------|--------|-------------|
-| `habitId` | habit id | `all` or omitted for all habits |
+| Param | Values | Description |
+|-------|--------|-------------|
+| `habitId` | habit id / `all` | `all` or omitted = all habits |
 | `range` | `year` / `3m` / `month` | full year (default) / 3 months / current month |
 
-### Calendar integration
+Embedded heatmaps stay **in sync with your check-ins** in real time.
 
-- Checked days show dots in the Calendar plugin (level-colored for intensity habits).
-- Clicking a date in Calendar switches the right-sidebar view to that date.
+## 💾 Data storage
 
-## Data storage
+Check-in data is stored in `.obsidian/plugins/habit-checkin/data.json` (auto-created on first use). Back up your vault or simply copy this file. **Running timers are saved automatically when you close Obsidian** and settle automatically on next launch — nothing is lost.
 
-Check-in data is stored in `<your-vault>/.obsidian/plugins/habit-checkin/data.json` (created automatically on first use). Back it up by copying this file.
+## ❓ FAQ
 
-## Development
+- **Can't find the plugin?** Make sure Obsidian ≥ 1.2.0 and that it's enabled in the *Installed plugins* list.
+- **Intensity colors not showing?** Toggle on **Intensity levels** when creating the habit, then save.
+- **Found a bug or have a feature request?** Open an [Issue](https://github.com/NotStudyToday/obsidian-habit-check-in/issues) on GitHub ⭐
 
-Single-file vanilla JS, no build step. Edit `main.js` / `styles.css` / `manifest.json`, then reload the plugin in Obsidian.
+---
 
-## 中文简介
+*Published on the Obsidian community marketplace 🎉 If you find it useful, give it a star on GitHub!*
 
-习惯打卡插件：右侧栏一键打卡、固定/手动/计时器三种打卡方式、强度分级配色、年热力图、连续打卡统计、与 Calendar 联动、笔记内嵌。安装与使用方式同上方英文说明。
+---
+
+# 习惯打卡 Habit Check-in
+
+> 一款 Obsidian 插件：在右侧栏**一键打卡**，支持 **单次 / 目标 / 计时** 三种打卡方式，自带 **GitHub 风格热力图**、**强度分级配色**，可与 **Calendar 插件联动**，还能把热力图**嵌入任意笔记**。
+
+![主页面](assets/main-page.png)
+
+## ✨ 功能特性
+
+### 1. 多种打卡方式
+
+**① 单次打卡**
+设置每日打卡事项，点击打卡按钮即可切换"已打卡 / 未打卡"状态。
+
+![单次打卡](assets/checkin-single.gif)
+
+**② 目标打卡**
+设置每日打卡目标，例如"每天喝水 1000ml"。可以自定义每次打卡的饮水量，点击 **+** 号累加，也可以手动输入单次打卡量。
+
+![目标打卡](assets/checkin-target.gif)
+
+**③ 时间打卡**
+支持**正向计时**与**倒计时**两种模式。倒计时可自定义时长（如 45 分钟），点击"开始"进入倒计时，时间结束自动把统计时长计入打卡。
+
+![时间打卡](assets/checkin-timer.gif)
+
+### 2. 与 Calendar 插件联动
+
+当日完成打卡后，日历对应日期会自动打点标记，一目了然。
+
+![Calendar 联动](assets/calendar-link.png)
+
+### 3. 强度分级配色
+
+可自由添加强度分级，并为每一级设置对应的数值范围与颜色，热力图会按强度自动着色。
+
+![强度分级](assets/intensity-levels.png)
+
+## 📦 安装方式
+
+> 前置条件：Obsidian **1.2.0 及以上**版本。
+
+### 方式一：社区插件市场（推荐，最简单）
+
+1. 打开 Obsidian → 设置 ⚙️ → **第三方插件**
+2. 关闭"安全模式"（如未关闭），点击 **浏览**
+3. 搜索 **`Habit Check-in`**
+4. 点击 **安装**，安装完成后在"已安装插件"列表中找到它并**启用**
+5. （可选）点击插件名旁的 ⚙️ 图标进入设置页
+
+### 方式二：BRAT（抢先体验新版本）
+
+适用于想第一时间试新功能的朋友。
+
+1. 先安装社区插件 [BRAT](obsidian://show-plugin?id=obsidian42-brat)
+2. 命令面板（Ctrl/Cmd+P）→ `BRAT: Add a beta plugin for testing`
+3. 粘贴仓库地址：`https://github.com/NotStudyToday/obsidian-habit-check-in`
+4. 回到"第三方插件"列表，启用 **Habit Check-in**
+
+### 方式三：手动安装
+
+1. 前往 GitHub [Releases](https://github.com/NotStudyToday/obsidian-habit-check-in/releases) 下载最新版本
+2. 解压得到 `habit-checkin` 文件夹（内含 `main.js`、`manifest.json`、`styles.css`）
+3. 把文件夹放入 vault 根目录的 `.obsidian/plugins/` 下
+4. 重启 Obsidian（或按 Ctrl/Cmd + R 重载），在"第三方插件"中启用
+
+## 🚀 使用教程
+
+### 创建习惯
+
+1. 设置 → **Habit Check-in** → **+ 新建习惯**
+
+![新建习惯](assets/create-habit-1.png)
+
+2. 填写基本信息：**名称**、**图标**（支持 Emoji）、**打卡方式**、**每次打卡量**等。
+
+![基本信息](assets/create-habit-2.png)
+
+3. 如需强度分级：打开"强度分级"开关，设置对应的**等级、数值、颜色**。
+
+![强度分级设置](assets/create-habit-3.png)
+
+4. 点击**保存**即创建成功，之后只需在**右侧栏**打卡即可。
+
+![打卡界面](assets/create-habit-4.png)
+
+### 查看统计
+
+点击左侧 Ribbon 栏的 **日历图标** 打开主视图，查看每个习惯的**年度热力图**与**连续打卡统计**。热力图支持 **全年 / 近三月 / 当月** 三种范围切换。
+
+### 补卡
+
+忘记打卡？在右侧栏顶部把**日期切换到过去某天**，即可补打当天的卡。
+
+## 📝 在笔记中嵌入热力图
+
+在设置页点击习惯行上的**复制**图标，把代码块粘贴到任意笔记中：
+
+````markdown
+```habit-heatmap
+habitId=xxxxxxxx
+```
+````
+
+| 参数 | 可选值 | 说明 |
+|------|--------|------|
+| `habitId` | 习惯 ID / `all` | `all` 或省略 = 所有习惯 |
+| `range` | `year` / `3m` / `month` | 全年（默认）/ 近三月 / 当月 |
+
+嵌入的热力图与打卡数据**实时联动**，打卡后自动更新。
+
+## 💾 数据存储
+
+打卡数据保存在 vault 的 `.obsidian/plugins/habit-checkin/data.json`（首次使用时自动生成）。备份 vault 或直接复制该文件即可。**计时中的任务会在关闭 Obsidian 后自动保存**，下次打开自动结算，不会丢。
+
+## ❓ 常见问题
+
+- **找不到插件？** 先确认 Obsidian 版本 ≥ 1.2.0，且安装后在"已安装插件"列表中已启用。
+- **强度颜色不生效？** 需要在创建习惯时打开"强度分级"开关并保存后才会按级着色。
+- **想反馈 Bug 或提需求？** 欢迎到 GitHub [Issues](https://github.com/NotStudyToday/obsidian-habit-check-in/issues) 留言 ⭐
+
+---
+
+*插件已上架 Obsidian 官方社区插件市场 🎉 如果你觉得好用，欢迎到 GitHub 点个 Star！*
 
 ## License
 
