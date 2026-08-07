@@ -24,10 +24,172 @@ const DEFAULT_DATA = {
     showStatMonth: true,    // 主视图统计：📅 本月完成
     showStatTotal: true,    // 主视图统计：✅ 总打卡
     showLegend: true,       // 主视图：强度分级图例
+    language: null,         // 界面语言：'zh' / 'en' / null=跟随系统
   },
 };
 
 const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六'];
+
+/* =========================================================
+ * 国际化（i18n）
+ * 默认文案为中文（key 即中文字符串）；切换英文时查 EN_STRINGS 映射。
+ * 语言来源：设置 language（'zh'/'en'），未设置则跟随 Obsidian/系统语言。
+ * ========================================================= */
+const EN_STRINGS = {
+  // —— 通用 ——
+  '保存': 'Save',
+  '取消': 'Cancel',
+  '开始': 'Start',
+  '结束': 'Stop',
+  '打卡': 'Check in',
+  '✓ 已打卡': '✓ Checked',
+  '今天': 'Today',
+  '开始计时': 'Start timer',
+  '长期': 'Ongoing',
+  '名称': 'Name',
+  '图标': 'Icon',
+  '颜色': 'Color',
+  '开始日期': 'Start date',
+  '结束日期': 'End date',
+  '每日目标': 'Daily goal',
+  '打卡方式': 'Check-in mode',
+  '计时类型': 'Timer type',
+  '每次打卡量': 'Amount per check-in',
+  '每周计划': 'Weekly plan',
+  '强度分级': 'Intensity levels',
+  '倒计时': 'Countdown',
+  '正向计时': 'Stopwatch',
+  '习惯名称': 'Habit name',
+  '分钟': 'min',
+  // —— 表单描述 / 下拉 ——
+  '如：背单词、跑步': 'e.g. Memorize words, run',
+  '可选 emoji，如 📖': 'Optional emoji, e.g. 📖',
+  '日历/热力图中打卡的显示颜色': 'Color used for check-ins in calendar / heatmap',
+  '勾选「长期」则没有结束日期': 'Check "Ongoing" to have no end date',
+  '目标数量，与「每次打卡量」同单位；支持小数': 'Target amount, same unit as "Amount per check-in"; decimals allowed',
+  '开启后按次数区间显示不同颜色，打卡变为次数叠加（点一次 +1）': 'Color by count ranges; check-in adds counts (+1 per tap)',
+  '强度分级时，每日目标 = 最高等级上限（自动同步）': 'With levels, daily goal = highest level max (auto-synced)',
+  '固定：点 +/− 加固定值；手动：先填数量再点 +/−；计时：分钟计时': 'Fixed: +/- adds a fixed amount; Manual: enter the amount first; Timer: count minutes',
+  '正向：点开始/结束，用时计入；倒计时：预设分钟数，可提前结束': 'Stopwatch: start/stop counts elapsed time; Countdown: preset minutes, can stop early',
+  '倒计时的默认预设分钟数': 'Default countdown minutes',
+  '固定模式：点一次 +N；手动模式：打卡输入框的默认值': 'Fixed: each tap +N; Manual: default value in the check-in input',
+  '全不选 = 每天': 'None selected = every day',
+  '单位：ml/h/页…': 'Unit: ml/h/pages…',
+  '固定每次打卡量': 'Fixed amount',
+  '打卡时手动填写': 'Enter manually',
+  '计时器（分钟）': 'Timer (minutes)',
+  '周一': 'Monday',
+  '周日': 'Sunday',
+  '跟随系统': 'Follow system',
+  // —— 预设配色 ——
+  '渐变绿': 'Green gradient',
+  '渐变红': 'Red gradient',
+  '渐变蓝': 'Blue gradient',
+  '渐变紫': 'Purple gradient',
+  '渐变黄': 'Yellow gradient',
+  '渐变霓虹': 'Neon gradient',
+  // —— 弹窗 ——
+  '编辑习惯': 'Edit habit',
+  '新建习惯': 'New habit',
+  '＋ 新建习惯': '+ New habit',
+  '等级{n}': 'Level {n}',
+  '＋ 添加强度': '+ Add level',
+  '请输入习惯名称': 'Please enter a habit name',
+  // —— 命令 / 视图标题 / 侧栏 ——
+  '打开习惯打卡统计': 'Open Habit Check-in stats',
+  '今日打卡（右侧栏）': 'Today check-in (right sidebar)',
+  '习惯打卡': 'Habit Check-in',
+  '今日打卡': 'Today check-in',
+  // —— 主视图 ——
+  '今日完成 {a}/{b}': 'Done today {a}/{b}',
+  ' 或命令「今日打卡（右侧栏）」': ' or use the command "Today check-in (right sidebar)"',
+  '还没有习惯，去「设置 → 习惯打卡」新建一个吧': 'No habits yet. Create one in Settings → Habit Check-in.',
+  '🔥 连续 {n} 天': '🔥 {n}-day streak',
+  '🏆 最长 {n} 天': '🏆 Longest {n}',
+  '📅 本月 {a}/{b}': '📅 This month {a}/{b}',
+  '✅ 总 {n}{u}': '✅ Total {n}{u}',
+  '等级{n} ≤{v}{u}': 'Level {n} ≤ {v}{u}',
+  // —— 今日打卡视图 ——
+  '还没有习惯，请先在「设置 → 习惯打卡」新建。': 'No habits yet. Create one in Settings → Habit Check-in.',
+  '完成 {a}/{b} · {p}%': 'Done {a}/{b} · {p}%',
+  '该日不计划': 'Not planned on this day',
+  '当日 {c}/{g}': 'Today {c}/{g}',
+  '当日 {c}/{g} · {m}': 'Today {c}/{g} · {m}',
+  // —— 嵌入 ——
+  '未找到习惯 ID：{id}': 'Habit ID not found: {id}',
+  '⚠️ 热力图渲染失败：{msg}': '⚠️ Heatmap render failed: {msg}',
+  // —— 设置页 ——
+  '新建/管理习惯，主视图看热力图；点习惯行「复制」图标，可把该习惯的热力图嵌入任意笔记。': 'Create and manage habits, view heatmaps in the main view; click the copy icon on a habit row to embed its heatmap into any note.',
+  '视图偏好': 'View preferences',
+  '每周第一天': 'First day of week',
+  '日历与热力图的起始列': 'Start column of the calendar / heatmap',
+  '功能图标（左侧栏）': 'Ribbon icons (left sidebar)',
+  '主视图图标': 'Main view icon',
+  '打开「习惯打卡统计」': 'Open "Habit Check-in stats"',
+  '今日打卡图标': 'Today check-in icon',
+  '右侧栏「今日打卡」列表': 'Right-sidebar "Today check-in" list',
+  '主视图统计项': 'Main view statistics',
+  '当前连续（🔥）': 'Current streak (🔥)',
+  '连续打卡的天数': 'Consecutive check-in days',
+  '最长连续（🏆）': 'Longest streak (🏆)',
+  '历史最长连续天数': 'Longest streak in history',
+  '本月完成（📅）': 'Month completion (📅)',
+  '本月已完成 / 应完成': 'Completed / planned this month',
+  '总打卡（✅）': 'Total check-ins (✅)',
+  '累计打卡次数': 'Total check-in count',
+  '强度图例': 'Intensity legend',
+  '主视图中显示强度分级的颜色与数值图例': 'Show the intensity-level color/value legend in the main view',
+  '习惯列表': 'Habit list',
+  '拖拽行或上下箭头排序；点「复制」图标可把该习惯的热力图嵌入任意笔记。': 'Drag rows or use the arrows to sort; click the copy icon to embed a habit\'s heatmap into any note.',
+  '暂无习惯，点击上方「新建习惯」创建。': 'No habits yet. Click "New habit" above to create one.',
+  '强度分级 {n} 级': 'Intensity {n} levels',
+  '目标 {v}{u}': 'Goal {v}{u}',
+  ' · 每次 +{v}{u}': ' · +{v}{u} each',
+  '拖拽排序': 'Drag to sort',
+  '复制嵌入代码': 'Copy embed code',
+  '编辑': 'Edit',
+  '上移': 'Move up',
+  '下移': 'Move down',
+  '删除': 'Delete',
+  '已复制「{name}」热力图嵌入代码，粘贴到笔记即可': 'Copied the embed code for "{name}". Paste it into any note.',
+  '确定删除习惯「{name}」吗？相关打卡记录也会一并删除。': 'Delete habit "{name}"? Its check-in records will also be removed.',
+  // —— 语言设置 ——
+  '语言 / Language': 'Language',
+  '切换插件界面语言': 'Switch the plugin UI language',
+  // —— 计划文本 ——
+  '{d} 起': 'From {d}',
+  '{d} 起 · 每周 {w}': 'From {d} · every {w}',
+};
+
+let _lang = 'zh'; // 当前界面语言：'zh' | 'en'
+
+function detectLang(setting) {
+  if (setting === 'zh' || setting === 'en') return setting;
+  let loc = '';
+  try { loc = String(window.localStorage.getItem('language') || navigator.language || '').toLowerCase(); }
+  catch (e) { loc = String(navigator.language || '').toLowerCase(); }
+  return loc.startsWith('zh') ? 'zh' : 'en';
+}
+
+// 翻译：中文文案即 key；英文时查字典；支持 {name} 变量替换
+function t(s, vars) {
+  let out = (_lang === 'en' && EN_STRINGS[s]) ? EN_STRINGS[s] : s;
+  if (vars) for (const k in vars) out = out.split('{' + k + '}').join(String(vars[k]));
+  return out;
+}
+
+function wd(i) { return _lang === 'en' ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][i] : WEEKDAYS[i]; }
+function monthLabel(m0) {
+  if (_lang === 'en') return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][m0];
+  return (m0 + 1) + '月';
+}
+function dateLabel(d) {
+  if (_lang === 'en') return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', weekday: 'short' });
+  return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 星期${WEEKDAYS[d.getDay()]}`;
+}
+function timerUnit() { return _lang === 'en' ? 'min' : '分钟'; }
+// 展示用单位：计时习惯显示当前语言下的计时单位，其余用用户输入
+function unitOf(h) { return h && h.inputMode === 'timer' ? timerUnit() : (h.unit || ''); }
 
 // 左侧栏功能图标可选列表（Obsidian/lucide 图标名）
 const ICON_OPTIONS = ['calendar-check', 'check-square', 'calendar-days', 'calendar', 'list-checks', 'flame', 'target', 'trophy', 'book-open', 'clipboard-check', 'alarm-check', 'check-circle', 'heart', 'star', 'zap', 'sun'];
@@ -217,8 +379,8 @@ function getAccentColor() {
 
 function planText(h) {
   if (h.endDate) return `${h.startDate} ~ ${h.endDate}`;
-  if (h.weekly && h.weekly.length) return `${h.startDate} 起 · 每周 ${h.weekly.map(i => WEEKDAYS[i]).join('')}`;
-  return `${h.startDate} 起`;
+  if (h.weekly && h.weekly.length) return t('{d} 起 · 每周 {w}', { d: h.startDate, w: h.weekly.map(i => wd(i)).join('') });
+  return t('{d} 起', { d: h.startDate });
 }
 
 /* =========================================================
@@ -287,7 +449,7 @@ function buildHeatmapCells(anchor, firstDay, habits, records, maxLevel, range) {
   const labels = [];
   for (const m of labelMonths) {
     const col = Math.floor(U.diffDays(m, gridStart) / 7);
-    if (col >= 0 && col < weekCount) labels.push({ col, text: (m.getMonth() + 1) + '月' });
+    if (col >= 0 && col < weekCount) labels.push({ col, text: monthLabel(m.getMonth()) });
   }
 
   // 行主序生成：for row { for col }，配合默认 grid-auto-flow:row，
@@ -309,9 +471,9 @@ function buildHeatmapCells(anchor, firstDay, habits, records, maxLevel, range) {
         title = key + ' · ' + parts.map(p => {
           const isCount = U.isCounting(p.habit);
           const goal = U.goalOf(p.habit);
-          const u = p.habit.unit || '';
+          const u = unitOf(p.habit);
           return `${p.habit.emoji || p.habit.name} ${p.count}${isCount ? u + '/' + goal + u : ''}`;
-        }).join('，');
+        }).join(_lang === 'en' ? ', ' : '，');
       }
       cells.push({ col, row, key, date: d, level, parts, title, isToday: key === today });
     }
@@ -373,7 +535,7 @@ function renderHeatmap(container, ctx) {
 
   const body = container.createDiv({ cls: 'habit-heatmap-body' });
   const dayCol = body.createDiv({ cls: 'habit-heatmap-days' });
-  for (let row = 0; row < 7; row++) dayCol.createSpan({ cls: 'habit-day-label', text: WEEKDAYS[(firstDay + row) % 7] });
+  for (let row = 0; row < 7; row++) dayCol.createSpan({ cls: 'habit-day-label', text: wd((firstDay + row) % 7) });
 
   const grid = body.createDiv({ cls: 'habit-heatmap-grid' });
   grid.style.setProperty('--habit-cols', data.weekCount);
@@ -404,6 +566,9 @@ class HabitCheckinPlugin extends Plugin {
     // 从持久化数据恢复上次未结束的计时器；离线期间到点的倒计时放入待结算列表
     const pending = this._restoreTimers();
 
+    // 界面语言：优先用设置，否则跟随 Obsidian/系统
+    _lang = detectLang(this.data.settings.language);
+
     this.registerView(VIEW_TYPE, leaf => new HabitView(leaf, this));
     this.registerView(TODAY_VIEW_TYPE, leaf => {
       const v = new HabitTodayView(leaf, this);
@@ -415,12 +580,12 @@ class HabitCheckinPlugin extends Plugin {
 
     this.addCommand({
       id: 'open-main-view',
-      name: '打开习惯打卡统计',
+      name: t('打开习惯打卡统计'),
       callback: () => this.activateView(),
     });
     this.addCommand({
       id: 'open-today-view',
-      name: '今日打卡（右侧栏）',
+      name: t('今日打卡（右侧栏）'),
       callback: () => this.activateTodayView(),
     });
 
@@ -486,6 +651,14 @@ class HabitCheckinPlugin extends Plugin {
     for (const cb of [...this._listeners]) { try { cb(); } catch (e) { console.error(e); } }
     this._updateDotStyles();
     this._injectCalendarSource();
+  }
+
+  // ---- 语言切换：更新全局语言，刷新侧栏图标、视图与设置页 ----
+  setLanguage() {
+    _lang = detectLang(this.data.settings.language);
+    this._setupRibbonIcons();
+    this.emitDataChange();
+    if (this.settingTab) this.settingTab.display();
   }
 
   // ---- Calendar 插件集成 ----
@@ -560,10 +733,10 @@ class HabitCheckinPlugin extends Plugin {
     this._ribbonEls = [];
     const s = this.data.settings;
     if (s.ribbonMain !== false) {
-      this._ribbonEls.push(this.addRibbonIcon(s.ribbonMainIcon || 'calendar-check', '习惯打卡', () => this.activateView()));
+      this._ribbonEls.push(this.addRibbonIcon(s.ribbonMainIcon || 'calendar-check', t('习惯打卡'), () => this.activateView()));
     }
     if (s.ribbonToday !== false) {
-      this._ribbonEls.push(this.addRibbonIcon(s.ribbonTodayIcon || 'check-square', '今日打卡（右侧栏）', () => this.activateTodayView()));
+      this._ribbonEls.push(this.addRibbonIcon(s.ribbonTodayIcon || 'check-square', t('今日打卡（右侧栏）'), () => this.activateTodayView()));
     }
   }
 
@@ -659,11 +832,11 @@ class HabitCheckinPlugin extends Plugin {
         el.style.borderRadius = '6px';
         el.style.padding = '8px';
         if (!this.data.habits.length) {
-          el.createDiv({ cls: 'habit-embed-empty', text: '还没有习惯，请先在「设置 → 习惯打卡」新建。' });
+          el.createDiv({ cls: 'habit-embed-empty', text: t('还没有习惯，请先在「设置 → 习惯打卡」新建。') });
           return;
         }
         if (params.habitId && params.habitId !== 'all' && !this.data.habits.some(h => h.id === params.habitId)) {
-          el.createDiv({ cls: 'habit-embed-empty', text: `未找到习惯 ID：${params.habitId}` });
+          el.createDiv({ cls: 'habit-embed-empty', text: t('未找到习惯 ID：{id}', { id: params.habitId }) });
           return;
         }
         renderHeatmap(el, {
@@ -677,7 +850,7 @@ class HabitCheckinPlugin extends Plugin {
       } catch (e) {
         console.error('habit-checkin: 嵌入渲染失败', e);
         el.empty();
-        el.createDiv({ cls: 'habit-embed-empty', text: `⚠️ 热力图渲染失败：${e && e.message ? e.message : e}` });
+        el.createDiv({ cls: 'habit-embed-empty', text: t('⚠️ 热力图渲染失败：{msg}', { msg: e && e.message ? e.message : e }) });
       }
     };
     draw();
@@ -696,7 +869,7 @@ class HabitView extends ItemView {
   }
 
   getViewType() { return VIEW_TYPE; }
-  getDisplayText() { return '习惯打卡'; }
+  getDisplayText() { return t('习惯打卡'); }
   getIcon() { return 'calendar-check'; }
 
   async onOpen() {
@@ -720,21 +893,21 @@ class HabitView extends ItemView {
 
     // 顶部今日概览
     const head = contentEl.createDiv({ cls: 'habit-dash-head' });
-    head.createSpan({ cls: 'habit-dash-date', text: `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 星期${WEEKDAYS[now.getDay()]}` });
+    head.createSpan({ cls: 'habit-dash-date', text: dateLabel(now) });
     const planToday = habits.filter(h => U.isInPlan(h, today));
     const doneToday = planToday.filter(h => U.isCompleted(h, today, records));
-    head.createSpan({ cls: 'habit-dash-progress', text: `今日完成 ${doneToday.length}/${planToday.length}` });
+    head.createSpan({ cls: 'habit-dash-progress', text: t('今日完成 {a}/{b}', { a: doneToday.length, b: planToday.length }) });
     if (planToday.length) {
       const bar = contentEl.createDiv({ cls: 'habit-progress-bar' });
       bar.createDiv({ cls: 'habit-progress-fill', attr: { style: `width:${Math.round(doneToday.length / planToday.length * 100)}%` } });
     }
     const hint = contentEl.createDiv({ cls: 'habit-dash-hint' });
-    hint.createEl('button', { cls: 'habit-btn habit-check-btn', text: '今日打卡' })
+    hint.createEl('button', { cls: 'habit-btn habit-check-btn', text: t('今日打卡') })
       .addEventListener('click', () => this.plugin.activateTodayView());
-    hint.createSpan({ text: ' 或命令「今日打卡（右侧栏）」' });
+    hint.createSpan({ text: t(' 或命令「今日打卡（右侧栏）」') });
 
     if (!habits.length) {
-      contentEl.createDiv({ cls: 'habit-dash-empty', text: '还没有习惯，去「设置 → 习惯打卡」新建一个吧' });
+      contentEl.createDiv({ cls: 'habit-dash-empty', text: t('还没有习惯，去「设置 → 习惯打卡」新建一个吧') });
       return;
     }
 
@@ -745,10 +918,10 @@ class HabitView extends ItemView {
       const s = settings;
       const title = block.createDiv({ cls: 'habit-block-head' });
       title.createSpan({ cls: 'habit-block-name', text: `${h.emoji || ''} ${h.name}` });
-      if (s.showStatStreak !== false) title.createSpan({ cls: 'habit-stat-item', text: `🔥 连续 ${U.currentStreak(h, records, today)} 天` });
-      if (s.showStatLongest !== false) title.createSpan({ cls: 'habit-stat-item', text: `🏆 最长 ${U.longestStreak(h, records)} 天` });
-      if (s.showStatMonth !== false) title.createSpan({ cls: 'habit-stat-item', text: `📅 本月 ${comp.done}/${comp.plan}` });
-      if (s.showStatTotal !== false) title.createSpan({ cls: 'habit-stat-item', text: `✅ 总 ${U.totalCheckins(h, records)}${h.unit || ''}` });
+      if (s.showStatStreak !== false) title.createSpan({ cls: 'habit-stat-item', text: t('🔥 连续 {n} 天', { n: U.currentStreak(h, records, today) }) });
+      if (s.showStatLongest !== false) title.createSpan({ cls: 'habit-stat-item', text: t('🏆 最长 {n} 天', { n: U.longestStreak(h, records) }) });
+      if (s.showStatMonth !== false) title.createSpan({ cls: 'habit-stat-item', text: t('📅 本月 {a}/{b}', { a: comp.done, b: comp.plan }) });
+      if (s.showStatTotal !== false) title.createSpan({ cls: 'habit-stat-item', text: t('✅ 总 {n}{u}', { n: U.totalCheckins(h, records), u: unitOf(h) }) });
       const body = block.createDiv({ cls: 'habit-block-body' });
       renderHeatmap(body, {
         habits: [h],
@@ -763,7 +936,7 @@ class HabitView extends ItemView {
         h.levels.forEach((lv, i) => {
           const item = legend.createDiv({ cls: 'habit-legend-item' });
           item.createSpan({ cls: 'habit-legend-swatch', attr: { style: `background:${lv.color}` } });
-          item.createSpan({ cls: 'habit-legend-text', text: `等级${i + 1} ≤${lv.max}${h.unit || ''}` });
+          item.createSpan({ cls: 'habit-legend-text', text: t('等级{n} ≤{v}{u}', { n: i + 1, v: lv.max, u: unitOf(h) }) });
         });
       }
     }
@@ -780,7 +953,7 @@ class HabitTodayView extends ItemView {
     this.dateKey = U.todayKey(); // 当前查看的日期（默认今天；点日历日期后自动切换）
   }
   getViewType() { return TODAY_VIEW_TYPE; }
-  getDisplayText() { return '今日打卡'; }
+  getDisplayText() { return t('今日打卡'); }
   getIcon() { return 'calendar-check'; }
 
   setDate(key) {
@@ -852,7 +1025,7 @@ class HabitTodayView extends ItemView {
     const dateInput = dateRow.createEl('input', { attr: { type: 'date', value: key } });
     dateInput.addEventListener('change', () => { if (dateInput.value) this.setDate(dateInput.value); });
     if (key !== today) {
-      dateRow.createEl('button', { cls: 'habit-btn habit-step-btn', text: '今天' })
+      dateRow.createEl('button', { cls: 'habit-btn habit-step-btn', text: t('今天') })
         .addEventListener('click', () => this.setDate(today));
     }
 
@@ -860,14 +1033,14 @@ class HabitTodayView extends ItemView {
     const planHabits = habits.filter(h => U.isInPlan(h, key));
     const doneHabits = planHabits.filter(h => U.isCompleted(h, key, records));
     const pct = planHabits.length ? Math.round(doneHabits.length / planHabits.length * 100) : 0;
-    dateRow.createDiv({ cls: 'habit-today-pct', text: `完成 ${doneHabits.length}/${planHabits.length} · ${pct}%` });
+    dateRow.createDiv({ cls: 'habit-today-pct', text: t('完成 {a}/{b} · {p}%', { a: doneHabits.length, b: planHabits.length, p: pct }) });
     if (planHabits.length) {
       const bar = contentEl.createDiv({ cls: 'habit-progress-bar' });
       bar.createDiv({ cls: 'habit-progress-fill', attr: { style: `width:${pct}%` } });
     }
 
     if (!habits.length) {
-      contentEl.createDiv({ cls: 'habit-today-empty', text: '还没有习惯，请在「设置 → 习惯打卡」新建。' });
+      contentEl.createDiv({ cls: 'habit-today-empty', text: t('还没有习惯，请先在「设置 → 习惯打卡」新建。') });
       return;
     }
 
@@ -879,44 +1052,44 @@ class HabitTodayView extends ItemView {
       info.createSpan({ cls: 'habit-today-name', text: `${h.emoji || ''} ${h.name}` });
       if (!U.isInPlan(h, key)) {
         row.addClass('is-off');
-        info.createSpan({ cls: 'habit-today-desc', text: '该日不计划' });
+        info.createSpan({ cls: 'habit-today-desc', text: t('该日不计划') });
         continue;
       }
       const cur = U.countOf(h.id, key, records);
       const done = U.isCompleted(h, key, records);
       const isCount = U.isCounting(h);
       const goal = U.goalOf(h);
-      const u = h.unit || '';
+      const u = unitOf(h);
       const fmt = n => `${n}${u}`;
       const ctl = row.createDiv({ cls: 'habit-today-ctl' });
       if (!isCount) {
-        const btn = ctl.createEl('button', { cls: 'habit-btn habit-check-btn' + (done ? ' is-done' : ''), text: done ? '✓ 已打卡' : '打卡' });
+        const btn = ctl.createEl('button', { cls: 'habit-btn habit-check-btn' + (done ? ' is-done' : ''), text: done ? t('✓ 已打卡') : t('打卡') });
         btn.addEventListener('click', () => this.plugin.toggleCheckin(h.id, key, false)); // 再点一次可撤销
       } else if (h.inputMode === 'timer') {
         // 计时器：正向计时 / 倒计时（单位分钟）
         const t = (this.plugin._timers && this.plugin._timers[h.id]) || null;
         const running = !!(t && t.start);
         const isCd = h.timerType === 'countdown';
-        info.createSpan({ cls: 'habit-today-desc', text: `当日 ${fmt(cur)}/${fmt(goal)} · ${isCd ? '倒计时' : '正向计时'}` });
+        info.createSpan({ cls: 'habit-today-desc', text: t('当日 {c}/{g} · {m}', { c: fmt(cur), g: fmt(goal), m: isCd ? t('倒计时') : t('正向计时') }) });
         if (running) {
           const el = ctl.createSpan({ cls: 'habit-timer-elapsed', text: this.fmtTimer(t) });
           el.dataset.habit = h.id;
-          ctl.createEl('button', { cls: 'habit-btn habit-step-btn', text: '结束' })
+          ctl.createEl('button', { cls: 'habit-btn habit-step-btn', text: t('结束') })
             .addEventListener('click', () => this.plugin.stopTimer(h.id));
         } else if (isCd) {
           const pi = ctl.createEl('input', { attr: { type: 'number', min: '1', value: String(h.step > 0 ? h.step : 25) } });
           pi.addClass('habit-amt-input');
-          ctl.createEl('button', { cls: 'habit-btn habit-check-btn', text: '开始' })
+          ctl.createEl('button', { cls: 'habit-btn habit-check-btn', text: t('开始') })
             .addEventListener('click', () => {
               const v = parseFloat(pi.value);
               this.plugin.startTimer(h.id, v > 0 ? v : (h.step > 0 ? h.step : 25));
             });
         } else {
-          ctl.createEl('button', { cls: 'habit-btn habit-check-btn', text: '开始计时' })
+          ctl.createEl('button', { cls: 'habit-btn habit-check-btn', text: t('开始计时') })
             .addEventListener('click', () => this.plugin.startTimer(h.id, null));
         }
       } else {
-        info.createSpan({ cls: 'habit-today-desc', text: `当日 ${fmt(cur)}/${fmt(goal)}` });
+        info.createSpan({ cls: 'habit-today-desc', text: t('当日 {c}/{g}', { c: fmt(cur), g: fmt(goal) }) });
         let amtInput = null;
         if (h.inputMode === 'manual') {
           // 手动填写模式：中间是数量输入框，+/− 按输入值增减
@@ -950,7 +1123,7 @@ class HabitFormModal extends Modal {
   onOpen() {
     const { contentEl } = this;
     contentEl.empty();
-    contentEl.createEl('h3', { text: this.habit ? '编辑习惯' : '新建习惯' });
+    contentEl.createEl('h3', { text: this.habit ? t('编辑习惯') : t('新建习惯') });
 
     const form = {
       name: this.habit ? this.habit.name : '',
@@ -971,25 +1144,25 @@ class HabitFormModal extends Modal {
     };
 
     new Setting(contentEl)
-      .setName('名称')
-      .setDesc('如：背单词、跑步')
-      .addText(t => {
-        t.setPlaceholder('习惯名称').setValue(form.name).onChange(v => { form.name = v; });
-        t.inputEl.focus();
+      .setName(t('名称'))
+      .setDesc(t('如：背单词、跑步'))
+      .addText(txt => {
+        txt.setPlaceholder(t('习惯名称')).setValue(form.name).onChange(v => { form.name = v; });
+        txt.inputEl.focus();
       });
 
     new Setting(contentEl)
-      .setName('图标')
-      .setDesc('可选 emoji，如 📖')
-      .addText(t => t.setPlaceholder('📖').setValue(form.emoji).onChange(v => { form.emoji = v; }));
+      .setName(t('图标'))
+      .setDesc(t('可选 emoji，如 📖'))
+      .addText(txt => txt.setPlaceholder('📖').setValue(form.emoji).onChange(v => { form.emoji = v; }));
 
     new Setting(contentEl)
-      .setName('颜色')
-      .setDesc('日历/热力图中打卡的显示颜色')
+      .setName(t('颜色'))
+      .setDesc(t('日历/热力图中打卡的显示颜色'))
       .addColorPicker(c => c.setValue(form.color).onChange(v => { form.color = v; }));
 
     // 开始日期
-    const startSetting = new Setting(contentEl).setName('开始日期');
+    const startSetting = new Setting(contentEl).setName(t('开始日期'));
     const startInput = document.createElement('input');
     startInput.type = 'date';
     startInput.value = form.startDate;
@@ -997,13 +1170,13 @@ class HabitFormModal extends Modal {
     startSetting.controlEl.appendChild(startInput);
 
     // 结束日期 + 长期
-    const endSetting = new Setting(contentEl).setName('结束日期').setDesc('勾选「长期」则没有结束日期');
+    const endSetting = new Setting(contentEl).setName(t('结束日期')).setDesc(t('勾选「长期」则没有结束日期'));
     const longLabel = document.createElement('label');
     longLabel.className = 'habit-weekly-chip';
     const longCb = document.createElement('input');
     longCb.type = 'checkbox';
     longLabel.appendChild(longCb);
-    longLabel.appendChild(document.createTextNode('长期'));
+    longLabel.appendChild(document.createTextNode(t('长期')));
     const endInput = document.createElement('input');
     endInput.type = 'date';
     if (form.endDate) endInput.value = form.endDate;
@@ -1018,8 +1191,8 @@ class HabitFormModal extends Modal {
 
     // 每日目标（非强度分级时使用）：与「每次打卡量」同单位，支持小数
     const targetSetting = new Setting(contentEl)
-      .setName('每日目标')
-      .setDesc('目标数量，与「每次打卡量」同单位；支持小数');
+      .setName(t('每日目标'))
+      .setDesc(t('目标数量，与「每次打卡量」同单位；支持小数'));
     const targetInput = document.createElement('input');
     targetInput.type = 'number';
     targetInput.min = '0.1';
@@ -1035,9 +1208,9 @@ class HabitFormModal extends Modal {
 
     // 强度分级
     new Setting(contentEl)
-      .setName('强度分级')
-      .setDesc('开启后按次数区间显示不同颜色，打卡变为次数叠加（点一次 +1）')
-      .addToggle(t => t.setValue(form.useLevels).onChange(v => {
+      .setName(t('强度分级'))
+      .setDesc(t('开启后按次数区间显示不同颜色，打卡变为次数叠加（点一次 +1）'))
+      .addToggle(tgl => tgl.setValue(form.useLevels).onChange(v => {
         form.useLevels = v;
         presetRow.toggle(v);
         levelBox.toggle(v);
@@ -1051,10 +1224,10 @@ class HabitFormModal extends Modal {
         form.target = lastMax;
         targetInput.value = String(lastMax);
         targetInput.disabled = true;
-        targetSetting.setDesc('强度分级时，每日目标 = 最高等级上限（自动同步）');
+        targetSetting.setDesc(t('强度分级时，每日目标 = 最高等级上限（自动同步）'));
       } else {
         targetInput.disabled = false;
-        targetSetting.setDesc('目标数量，与「每次打卡量」同单位；支持小数');
+        targetSetting.setDesc(t('目标数量，与「每次打卡量」同单位；支持小数'));
       }
     }
 
@@ -1070,7 +1243,7 @@ class HabitFormModal extends Modal {
       renderLevels();
     }
     for (const p of PRESET_PALETTES) {
-      const chip = presetRow.createDiv({ cls: 'habit-preset-chip', attr: { title: p.name } });
+      const chip = presetRow.createDiv({ cls: 'habit-preset-chip', attr: { title: t(p.name) } });
       for (const c of p.colors) chip.createSpan({ cls: 'habit-preset-dot', attr: { style: `background:${c}` } });
       chip.addEventListener('click', () => applyPreset(p));
     }
@@ -1083,7 +1256,7 @@ class HabitFormModal extends Modal {
       for (let i = 0; i < form.levels.length; i++) {
         const lv = form.levels[i];
         const row = levelBox.createDiv({ cls: 'habit-level-row' });
-        row.createSpan({ cls: 'habit-level-tag', text: `等级${i + 1}` });
+        row.createSpan({ cls: 'habit-level-tag', text: t('等级{n}', { n: i + 1 }) });
         row.createSpan({ cls: 'habit-level-cond', text: '≤' });
         const maxInput = row.createEl('input', { attr: { type: 'number', min: '0.1', step: 'any', value: String(lv.max) } });
         maxInput.addEventListener('input', () => { lv.max = Math.max(0.1, parseFloat(maxInput.value) || 1); syncTargetFromLevels(); });
@@ -1091,7 +1264,7 @@ class HabitFormModal extends Modal {
         colorInput.addEventListener('change', () => { lv.color = colorInput.value; });
         row.createEl('button', { cls: 'habit-btn', text: '✕' }).addEventListener('click', () => { form.levels.splice(i, 1); renderLevels(); });
       }
-      levelBox.createEl('button', { cls: 'habit-btn', text: '＋ 添加强度' }).addEventListener('click', () => {
+      levelBox.createEl('button', { cls: 'habit-btn', text: t('＋ 添加强度') }).addEventListener('click', () => {
         const last = form.levels[form.levels.length - 1];
         form.levels.push({ max: (last ? last.max : 0) + 5, color: last ? last.color : '#4ade80' });
         renderLevels();
@@ -1102,41 +1275,42 @@ class HabitFormModal extends Modal {
 
     // 打卡方式：固定每次打卡量 / 手动填写 / 计时器
     const modeSetting = new Setting(contentEl)
-      .setName('打卡方式')
-      .setDesc('固定：点 +/− 加固定值；手动：先填数量再点 +/−；计时：分钟计时')
+      .setName(t('打卡方式'))
+      .setDesc(t('固定：点 +/− 加固定值；手动：先填数量再点 +/−；计时：分钟计时'))
       .addDropdown(d => d
-        .addOption('fixed', '固定每次打卡量')
-        .addOption('manual', '打卡时手动填写')
-        .addOption('timer', '计时器（分钟）')
+        .addOption('fixed', t('固定每次打卡量'))
+        .addOption('manual', t('打卡时手动填写'))
+        .addOption('timer', t('计时器（分钟）'))
         .setValue(form.inputMode || 'fixed')
         .onChange(v => {
           form.inputMode = v;
           timerTypeSetting.settingEl.toggle(v === 'timer');
           if (v === 'timer') {
-            form.unit = '分钟';
-            unitInput.value = '分钟';
-            targetUnitEl.textContent = '分钟';
-            stepSetting.setDesc('倒计时的默认预设分钟数');
+            const tu = timerUnit();
+            form.unit = tu;
+            unitInput.value = tu;
+            targetUnitEl.textContent = tu;
+            stepSetting.setDesc(t('倒计时的默认预设分钟数'));
           } else {
-            stepSetting.setDesc('固定模式：点一次 +N；手动模式：打卡输入框的默认值');
+            stepSetting.setDesc(t('固定模式：点一次 +N；手动模式：打卡输入框的默认值'));
           }
         }));
 
     // 计时类型（打卡方式=计时器时显示）
     const timerTypeSetting = new Setting(contentEl)
-      .setName('计时类型')
-      .setDesc('正向：点开始/结束，用时计入；倒计时：预设分钟数，可提前结束')
+      .setName(t('计时类型'))
+      .setDesc(t('正向：点开始/结束，用时计入；倒计时：预设分钟数，可提前结束'))
       .addDropdown(d => d
-        .addOption('stopwatch', '正向计时')
-        .addOption('countdown', '倒计时')
+        .addOption('stopwatch', t('正向计时'))
+        .addOption('countdown', t('倒计时'))
         .setValue(form.timerType || 'stopwatch')
         .onChange(v => { form.timerType = v; }));
     timerTypeSetting.settingEl.toggle(form.inputMode === 'timer');
 
     // 每次打卡量 + 单位
     const stepSetting = new Setting(contentEl)
-      .setName('每次打卡量')
-      .setDesc(form.inputMode === 'timer' ? '倒计时的默认预设分钟数' : '固定模式：点一次 +N；手动模式：打卡输入框的默认值');
+      .setName(t('每次打卡量'))
+      .setDesc(form.inputMode === 'timer' ? t('倒计时的默认预设分钟数') : t('固定模式：点一次 +N；手动模式：打卡输入框的默认值'));
     const stepInput = document.createElement('input');
     stepInput.type = 'number';
     stepInput.min = '0.1';
@@ -1147,14 +1321,14 @@ class HabitFormModal extends Modal {
     stepSetting.controlEl.appendChild(stepInput);
     const unitInput = document.createElement('input');
     unitInput.type = 'text';
-    unitInput.placeholder = '单位：ml/h/页…';
+    unitInput.placeholder = t('单位：ml/h/页…');
     unitInput.value = form.unit;
     unitInput.style.width = '96px';
     unitInput.addEventListener('input', () => { form.unit = unitInput.value.trim(); targetUnitEl.textContent = form.unit; });
     stepSetting.controlEl.appendChild(unitInput);
 
     // 周计划
-    const wk = new Setting(contentEl).setName('每周计划').setDesc('全不选 = 每天');
+    const wk = new Setting(contentEl).setName(t('每周计划')).setDesc(t('全不选 = 每天'));
     const chips = wk.controlEl.createDiv({ cls: 'habit-weekly' });
     for (let i = 0; i < 7; i++) {
       const lab = document.createElement('label');
@@ -1167,17 +1341,17 @@ class HabitFormModal extends Modal {
         form.weekly = [...chips.querySelectorAll('input:checked')].map(x => Number(x.value));
       });
       lab.appendChild(cb);
-      lab.appendChild(document.createTextNode(WEEKDAYS[i]));
+      lab.appendChild(document.createTextNode(wd(i)));
       chips.appendChild(lab);
     }
 
     new Setting(contentEl)
-      .addButton(b => b.setButtonText('保存').setCta().onClick(() => { this.save(form); }))
-      .addButton(b => b.setButtonText('取消').onClick(() => this.close()));
+      .addButton(b => b.setButtonText(t('保存')).setCta().onClick(() => { this.save(form); }))
+      .addButton(b => b.setButtonText(t('取消')).onClick(() => this.close()));
   }
 
   save(form) {
-    if (!form.name.trim()) { new Notice('请输入习惯名称'); return; }
+    if (!form.name.trim()) { new Notice(t('请输入习惯名称')); return; }
     const data = this.plugin.data;
     const levels = form.useLevels ? form.levels
       .map(l => ({ max: Math.max(0.1, parseFloat(l.max) || 1), color: /^#[0-9a-f]{3,8}$/i.test(l.color || '') ? l.color : '#4ade80' }))
@@ -1194,7 +1368,7 @@ class HabitFormModal extends Modal {
           target: levels.length ? levels[levels.length - 1].max : form.target,
           levels,
           step: Math.max(0.1, parseFloat(form.step) || 1),
-          unit: form.inputMode === 'timer' ? '分钟' : (form.unit || ''),
+          unit: form.inputMode === 'timer' ? timerUnit() : (form.unit || ''),
           inputMode: form.inputMode === 'manual' ? 'manual' : form.inputMode === 'timer' ? 'timer' : 'fixed',
           timerType: form.inputMode === 'timer' ? (form.timerType || 'stopwatch') : null,
           weekly: form.weekly,
@@ -1240,21 +1414,36 @@ class HabitCheckinSettingTab extends PluginSettingTab {
   display() {
     const { containerEl } = this;
     containerEl.empty();
-    containerEl.createEl('h2', { text: '习惯打卡' });
-    containerEl.createEl('p', { text: '新建/管理习惯，主视图看热力图；点习惯行「复制」图标，可把该习惯的热力图嵌入任意笔记。', cls: 'setting-item-description' });
+    containerEl.createEl('h2', { text: t('习惯打卡') });
+    containerEl.createEl('p', { text: t('新建/管理习惯，主视图看热力图；点习惯行「复制」图标，可把该习惯的热力图嵌入任意笔记。'), cls: 'setting-item-description' });
 
+    // 界面语言切换
     new Setting(containerEl)
-      .setName('新建习惯')
-      .addButton(b => b.setButtonText('＋ 新建习惯').setCta().onClick(() => new HabitFormModal(this.app, this.plugin).open()));
-
-    containerEl.createEl('h3', { text: '视图偏好' });
-
-    new Setting(containerEl)
-      .setName('每周第一天')
-      .setDesc('日历与热力图的起始列')
+      .setName(t('语言 / Language'))
+      .setDesc(t('切换插件界面语言'))
       .addDropdown(d => d
-        .addOption('1', '周一')
-        .addOption('0', '周日')
+        .addOption('auto', t('跟随系统'))
+        .addOption('zh', '中文')
+        .addOption('en', 'English')
+        .setValue(this.plugin.data.settings.language || 'auto')
+        .onChange(async v => {
+          this.plugin.data.settings.language = v === 'auto' ? null : v;
+          await this.plugin.saveData(this.plugin.data);
+          this.plugin.setLanguage();
+        }));
+
+    new Setting(containerEl)
+      .setName(t('新建习惯'))
+      .addButton(b => b.setButtonText(t('＋ 新建习惯')).setCta().onClick(() => new HabitFormModal(this.app, this.plugin).open()));
+
+    containerEl.createEl('h3', { text: t('视图偏好') });
+
+    new Setting(containerEl)
+      .setName(t('每周第一天'))
+      .setDesc(t('日历与热力图的起始列'))
+      .addDropdown(d => d
+        .addOption('1', t('周一'))
+        .addOption('0', t('周日'))
         .setValue(String(this.plugin.data.settings.firstDayOfWeek))
         .onChange(async v => {
           this.plugin.data.settings.firstDayOfWeek = Number(v);
@@ -1262,7 +1451,7 @@ class HabitCheckinSettingTab extends PluginSettingTab {
           this.plugin.emitDataChange();
         }));
 
-    containerEl.createEl('h3', { text: '功能图标（左侧栏）' });
+    containerEl.createEl('h3', { text: t('功能图标（左侧栏）') });
     const iconSetting = (name, desc, keyEnabled, keyIcon, defIcon) => {
       const st = new Setting(containerEl).setName(name).setDesc(desc);
       st.addToggle(t => t.setValue(this.plugin.data.settings[keyEnabled] !== false).onChange(async v => {
@@ -1279,10 +1468,10 @@ class HabitCheckinSettingTab extends PluginSettingTab {
         });
       });
     };
-    iconSetting('主视图图标', '打开「习惯打卡统计」', 'ribbonMain', 'ribbonMainIcon', 'calendar-check');
-    iconSetting('今日打卡图标', '右侧栏「今日打卡」列表', 'ribbonToday', 'ribbonTodayIcon', 'check-square');
+    iconSetting(t('主视图图标'), t('打开「习惯打卡统计」'), 'ribbonMain', 'ribbonMainIcon', 'calendar-check');
+    iconSetting(t('今日打卡图标'), t('右侧栏「今日打卡」列表'), 'ribbonToday', 'ribbonTodayIcon', 'check-square');
 
-    containerEl.createEl('h3', { text: '主视图统计项' });
+    containerEl.createEl('h3', { text: t('主视图统计项') });
     const statToggle = (label, desc, key) => new Setting(containerEl)
       .setName(label)
       .setDesc(desc)
@@ -1291,35 +1480,35 @@ class HabitCheckinSettingTab extends PluginSettingTab {
         await this.plugin.saveData(this.plugin.data);
         this.plugin.emitDataChange();
       }));
-    statToggle('当前连续（🔥）', '连续打卡的天数', 'showStatStreak');
-    statToggle('最长连续（🏆）', '历史最长连续天数', 'showStatLongest');
-    statToggle('本月完成（📅）', '本月已完成 / 应完成', 'showStatMonth');
-    statToggle('总打卡（✅）', '累计打卡次数', 'showStatTotal');
-    statToggle('强度图例', '主视图中显示强度分级的颜色与数值图例', 'showLegend');
+    statToggle(t('当前连续（🔥）'), t('连续打卡的天数'), 'showStatStreak');
+    statToggle(t('最长连续（🏆）'), t('历史最长连续天数'), 'showStatLongest');
+    statToggle(t('本月完成（📅）'), t('本月已完成 / 应完成'), 'showStatMonth');
+    statToggle(t('总打卡（✅）'), t('累计打卡次数'), 'showStatTotal');
+    statToggle(t('强度图例'), t('主视图中显示强度分级的颜色与数值图例'), 'showLegend');
 
-    containerEl.createEl('h3', { text: '习惯列表' });
-    containerEl.createSpan({ cls: 'setting-item-description', text: '拖拽行或上下箭头排序；点「复制」图标可把该习惯的热力图嵌入任意笔记。' });
+    containerEl.createEl('h3', { text: t('习惯列表') });
+    containerEl.createSpan({ cls: 'setting-item-description', text: t('拖拽行或上下箭头排序；点「复制」图标可把该习惯的热力图嵌入任意笔记。') });
     const habits = [...this.plugin.data.habits].sort((a, b) => a.sort - b.sort);
     if (!habits.length) {
-      containerEl.createSpan({ text: '暂无习惯，点击上方「新建习惯」创建。' });
+      containerEl.createSpan({ text: t('暂无习惯，点击上方「新建习惯」创建。') });
       return;
     }
     for (let i = 0; i < habits.length; i++) {
       const h = habits[i];
-      const unitS = h.unit || '';
+      const unitS = unitOf(h);
       const isCount = U.isCounting(h);
-      const goalS = h.levels && h.levels.length ? '强度分级 ' + h.levels.length + ' 级' : '目标 ' + h.target + unitS;
-      const stepS = isCount ? ' · 每次 +' + (h.step || 1) + unitS : '';
+      const goalS = h.levels && h.levels.length ? t('强度分级 {n} 级', { n: h.levels.length }) : t('目标 {v}{u}', { v: h.target, u: unitS });
+      const stepS = isCount ? t(' · 每次 +{v}{u}', { v: h.step || 1, u: unitS }) : '';
       const desc = `${h.color} · ${goalS}${stepS} · ${planText(h)}`;
       const s = new Setting(containerEl)
         .setName(`${h.emoji || ''} ${h.name}`)
         .setDesc(desc)
-        .addExtraButton(b => b.setIcon('grip-vertical').setTooltip('拖拽排序'))
-        .addExtraButton(b => b.setIcon('copy').setTooltip('复制嵌入代码').onClick(() => this.copyEmbed(h)))
-        .addExtraButton(b => b.setIcon('pencil').setTooltip('编辑').onClick(() => new HabitFormModal(this.app, this.plugin, h).open()))
-        .addExtraButton(b => b.setIcon('up-chevron-glyph').setTooltip('上移').onClick(() => this.move(h, -1)))
-        .addExtraButton(b => b.setIcon('down-chevron-glyph').setTooltip('下移').onClick(() => this.move(h, 1)))
-        .addExtraButton(b => b.setIcon('trash').setTooltip('删除').onClick(() => this.remove(h)));
+        .addExtraButton(b => b.setIcon('grip-vertical').setTooltip(t('拖拽排序')))
+        .addExtraButton(b => b.setIcon('copy').setTooltip(t('复制嵌入代码')).onClick(() => this.copyEmbed(h)))
+        .addExtraButton(b => b.setIcon('pencil').setTooltip(t('编辑')).onClick(() => new HabitFormModal(this.app, this.plugin, h).open()))
+        .addExtraButton(b => b.setIcon('up-chevron-glyph').setTooltip(t('上移')).onClick(() => this.move(h, -1)))
+        .addExtraButton(b => b.setIcon('down-chevron-glyph').setTooltip(t('下移')).onClick(() => this.move(h, 1)))
+        .addExtraButton(b => b.setIcon('trash').setTooltip(t('删除')).onClick(() => this.remove(h)));
       s.settingEl.style.borderBottom = 'none';
       // 整行可拖拽排序
       s.settingEl.draggable = true;
@@ -1346,7 +1535,7 @@ class HabitCheckinSettingTab extends PluginSettingTab {
     const snippet = '```habit-heatmap\nhabitId=' + h.id + '\n```';
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(snippet).then(() => new Notice('已复制「' + h.name + '」热力图嵌入代码，粘贴到笔记即可')).catch(() => {});
+        navigator.clipboard.writeText(snippet).then(() => new Notice(t('已复制「{name}」热力图嵌入代码，粘贴到笔记即可', { name: h.name }))).catch(() => {});
       } else {
         const ta = document.createElement('textarea');
         ta.value = snippet;
@@ -1354,7 +1543,7 @@ class HabitCheckinSettingTab extends PluginSettingTab {
         ta.select();
         document.execCommand('copy');
         ta.remove();
-        new Notice('已复制「' + h.name + '」热力图嵌入代码，粘贴到笔记即可');
+        new Notice(t('已复制「{name}」热力图嵌入代码，粘贴到笔记即可', { name: h.name }));
       }
     } catch (e) { /* 忽略剪贴板错误 */ }
   }
@@ -1388,7 +1577,7 @@ class HabitCheckinSettingTab extends PluginSettingTab {
   }
 
   async remove(h) {
-    if (!window.confirm(`确定删除习惯「${h.name}」吗？相关打卡记录也会一并删除。`)) return;
+    if (!window.confirm(t('确定删除习惯「{name}」吗？相关打卡记录也会一并删除。', { name: h.name }))) return;
     const data = this.plugin.data;
     data.habits = data.habits.filter(x => x.id !== h.id);
     delete data.records[h.id];
