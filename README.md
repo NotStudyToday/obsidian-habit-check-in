@@ -2,6 +2,10 @@
 
 ---
 
+**Habit Check-in** is an Obsidian plugin for habit tracking: one-click check-in from the right sidebar (single / goal / timer modes), GitHub-style heatmaps with intensity-level colors, Calendar plugin integration, and embeddable heatmaps in notes. It is published on the [Obsidian Community Marketplace](https://obsidian.md/plugins?id=habit-checkin). English guide: **[README-en.md](README-en.md)**.
+
+---
+
 # 习惯打卡 Habit Check-in
 
 > 一款 Obsidian 插件：在右侧栏**一键打卡**，支持 **单次 / 目标 / 计时** 三种打卡方式，自带 **GitHub 风格热力图**、**强度分级配色**，可与 **Calendar 插件联动**，还能把热力图**嵌入任意笔记**。
