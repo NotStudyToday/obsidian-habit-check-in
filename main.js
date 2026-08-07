@@ -390,6 +390,7 @@ class HabitCheckinPlugin extends Plugin {
   async onload() {
     this._listeners = new Set();
     this._timers = {}; // 运行时计时状态：habitId -> { start, preset }
+    document.body.classList.add('habit-checkin-loaded'); // 作用域标记：CSS 打点上限规则仅在本插件加载时生效
     const raw = await this.loadData();
     this.data = Object.assign({}, DEFAULT_DATA, raw || {});
     this.data.settings = Object.assign({}, DEFAULT_DATA.settings, (raw && raw.settings) || {});
@@ -473,6 +474,7 @@ class HabitCheckinPlugin extends Plugin {
   onunload() {
     if (this._dotStyleEl) this._dotStyleEl.remove();
     if (this._listeners) this._listeners.clear();
+    document.body.classList.remove('habit-checkin-loaded');
   }
 
   // ---- 事件总线 ----

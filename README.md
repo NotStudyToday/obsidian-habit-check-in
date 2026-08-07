@@ -1,62 +1,57 @@
-# Habit Check-in 习惯打卡
+# Habit Check-in
 
-一个开箱即用的 Obsidian 习惯打卡插件：右侧栏一键打卡、固定/手动/计时器三种打卡方式、强度分级预设配色、年热力图、连续打卡统计、与 Calendar 插件联动、笔记内嵌。
+Check in habits from the right sidebar with one click, track streaks and yearly heatmaps, and embed habit heatmaps into any note.
 
-> 纯 JavaScript 单文件实现，无构建步骤，无需 Node 环境。
+## Features
 
-## 功能特性
+- **One-click check-in** from the right sidebar — click again to undo
+- **Calendar integration** — dots on checked days; click a date to switch the check-in date
+- **Three input modes**: fixed step, manual amount, timer (stopwatch / countdown)
+- **Intensity levels** with 6 preset color palettes
+- **Stats**: current streak, longest streak, monthly completion, total check-ins
+- **Yearly heatmap** (GitHub style): full year / 3 months / current month
+- **Embed** any habit's heatmap into a note
+- **Light & dark theme** support via Obsidian CSS variables
 
-- ✅ **一键打卡**：右侧栏「今日打卡」视图，点一下完成打卡，再点可撤销
-- 📅 **日期联动**：与 Calendar 插件联动——点日历日期自动切换打卡日期，日历上显示打卡圆点
-- 🎯 **三种打卡方式**
-  - **固定**：点 +/− 按固定步长增减（适合背单词、跑步）
-  - **手动**：先填数量再点 +/−（适合喝水这种每次不固定的）
-  - **计时器**：正向秒表 / 倒计时，结束时自动计入（单位：分钟）
-- 🎨 **强度分级**：按数量区间显示不同颜色（如喝水 0-200/400/600/800/1000ml），自带 6 套预设渐变配色
-- 🔥 **统计**：当前连续、最长连续、本月完成、总打卡
-- 📊 **年热力图**：GitHub 风格全年热力图，支持全年 / 近 3 个月 / 当月三种范围
-- 📝 **笔记内嵌**：把任意习惯（或全部）的热力图嵌入笔记
-- 🌓 **深浅主题适配**：全部使用 Obsidian CSS 变量
+## Installation
 
-## 安装
+### Option 1: BRAT (recommended for testing)
 
-### 方式一：BRAT（推荐，方便更新）
+1. Install the [BRAT](obsidian://show-plugin?id=obsidian42-brat) community plugin.
+2. Command palette → `BRAT: Add a beta plugin for testing` → paste `https://github.com/NotStudyToday/obsidian-habit-check-in`.
+3. Enable **Habit Check-in** in Settings → Community plugins.
 
-1. 安装社区插件 [BRAT](obsidian://show-plugin?id=obsidian42-brat)
-2. 命令面板 → `BRAT: Add a beta plugin for testing` → 输入仓库地址 `https://github.com/NotStudyToday/obsidian-habit-check-in`
-3. 在「设置 → 第三方插件」中启用 **Habit Check-in**
+### Option 2: Manual
 
-### 方式二：手动安装
+1. Download the latest [release](https://github.com/NotStudyToday/obsidian-habit-check-in/releases).
+2. Unzip and place the `habit-checkin` folder into `<your-vault>/.obsidian/plugins/`.
+3. Reload Obsidian and enable **Habit Check-in** in Settings → Community plugins.
 
-1. 从 [Releases](https://github.com/NotStudyToday/obsidian-habit-check-in/releases) 下载最新版本
-2. 解压后将 `habit-checkin` 文件夹放入 `<你的库>/.obsidian/plugins/`
-3. 重启 Obsidian，在「设置 → 第三方插件」中启用
+## Usage
 
-## 使用指南
+### Create a habit
 
-### 新建习惯
+Settings → Habit Check-in → **+ New habit**. Configure:
 
-「设置 → 习惯打卡 → ＋ 新建习惯」，可配置：
+- Name, emoji icon, color.
+- Start/end date (or "ongoing"), weekly plan (e.g. Mon/Wed/Fri).
+- Daily target, step size, unit.
+- **Intensity levels**: colored by count ranges, with one-click preset palettes.
+- Input mode: fixed / manual / timer.
 
-- 名称 / emoji 图标 / 颜色
-- 起止日期（可设「长期」）、每周计划（如仅周一/三/五）
-- 每日目标、每次打卡量、单位
-- **强度分级**：开启后按区间显示颜色，一键套用预设渐变
-- 打卡方式：固定 / 手动 / 计时器
+### Right-sidebar check-in
 
-### 今日打卡（右侧栏）
+- Click the `check-square` icon in the left ribbon to open the today view.
+- Switch the date to backfill check-ins; the header shows daily progress.
+- Timer habits: stopwatch — "Start / Stop"; countdown — enter minutes, auto-records when finished.
 
-- 点击左侧栏的 `check-square` 图标（或运行命令「今日打卡（右侧栏）」）打开
-- 支持切换日期补打卡，顶部显示当日完成度与进度条
-- 计时器习惯：秒表点「开始计时 / 结束」；倒计时填分钟数点「开始」，到点自动记录
+### Main view
 
-### 主视图统计
+Click the `calendar-check` icon in the left ribbon to see each habit's yearly heatmap and stats.
 
-点击左侧栏 `calendar-check` 图标，查看每个习惯的年热力图与统计。
+### Embed in notes
 
-### 笔记内嵌
-
-在设置页的习惯行点「复制」图标，得到嵌入代码，粘贴到任意笔记：
+In the settings page, click the copy icon on a habit row, then paste into any note:
 
 ````markdown
 ```habit-heatmap
@@ -64,26 +59,30 @@ habitId=xxxxxxxx
 ```
 ````
 
-可选参数：
+Optional parameters:
 
-| 参数 | 值 | 说明 |
-|------|----|------|
-| `habitId` | 习惯 id | 省略或 `all` 表示全部习惯 |
-| `range` | `year` / `3m` / `month` | 全年（默认）/ 近 3 个月 / 当月 |
+| Parameter | Values | Description |
+|-----------|--------|-------------|
+| `habitId` | habit id | `all` or omitted for all habits |
+| `range` | `year` / `3m` / `month` | full year (default) / 3 months / current month |
 
-### 与 Calendar 联动
+### Calendar integration
 
-- 打开 Calendar 后，打卡日会显示圆点（强度分级习惯按等级着色）
-- 点击 Calendar 中的日期，右侧栏「今日打卡」会自动切换到该日期
+- Checked days show dots in the Calendar plugin (level-colored for intensity habits).
+- Clicking a date in Calendar switches the right-sidebar view to that date.
 
-## 数据存储
+## Data storage
 
-打卡数据保存在 `<你的库>/.obsidian/plugins/habit-checkin/data.json`（插件会在首次使用时自动创建）。备份 / 迁移只需复制该文件；仓库中的 `data.json` 已被 git 忽略，不会入库。
+Check-in data is stored in `<your-vault>/.obsidian/plugins/habit-checkin/data.json` (created automatically on first use). Back it up by copying this file.
 
-## 开发
+## Development
 
-单文件纯 JS，无构建。修改 `main.js` / `styles.css` / `manifest.json` 后，在 Obsidian 中重载插件即可生效。
+Single-file vanilla JS, no build step. Edit `main.js` / `styles.css` / `manifest.json`, then reload the plugin in Obsidian.
 
-## 许可证
+## 中文简介
+
+习惯打卡插件：右侧栏一键打卡、固定/手动/计时器三种打卡方式、强度分级配色、年热力图、连续打卡统计、与 Calendar 联动、笔记内嵌。安装与使用方式同上方英文说明。
+
+## License
 
 MIT

@@ -423,8 +423,9 @@
   text-align: center;
 }
 
-/* ---- Calendar 打点上限：仅当当天含习惯圆点时，限制总点数最多 4 个（含日历自身）。
-     用 :has() 把规则限定在「含习惯圆点」的容器上，避免全局泄漏影响其他插件的 .dot-container ---- */
-.dot-container:has(svg.habit-dot) > *:nth-child(n+5) {
+/* ---- Calendar 打点上限：限制同一日期总点数最多 4 个（含日历自身）。
+     用 body.habit-checkin-loaded 作用域标记（插件 onload 时加到 body 上）替代 :has()，
+     避免 :has() 的宽选择器失效性能问题，同时不影响其他插件的 .dot-container ---- */
+body.habit-checkin-loaded .dot-container > *:nth-child(n+5) {
   display: none;
 }
