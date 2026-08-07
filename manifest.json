@@ -1,0 +1,9 @@
+{
+  "id": "habit-checkin",
+  "name": "Habit Check-in",
+  "version": "0.1.0",
+  "minAppVersion": "1.0.0",
+  "description": "习惯打卡：右侧栏一键打卡、固定/手动/计时器打卡、强度分级预设配色与图例、与 Calendar 联动选日期、年热力图、连续打卡统计、笔记内嵌。",
+  "author": "liuga",
+  "isDesktopOnly": false
+}
