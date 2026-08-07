@@ -1,0 +1,53 @@
+# Release workflow with artifact attestations
+#
+# Triggered when a version tag (e.g. 0.1.2) is pushed.
+# This plugin has NO build step — the committed files ARE the release assets.
+# The workflow stages them into dist/, attests their provenance, and creates or
+# updates the GitHub Release with auto-generated release notes.
+#
+# Result: users can cryptographically verify each release asset was built from
+# this repository (see the "attestations" badge on release assets).
+
+name: Release with attestations
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+  workflow_dispatch:
+
+permissions:
+  contents: write      # create/update the GitHub Release and upload assets
+  id-token: write      # required by attest-build-provenance
+  attestations: write  # store the attestations
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # No build tooling is needed for this plugin.
+      # Just stage the committed files as the release assets.
+      - name: Stage release assets
+        run: |
+          mkdir -p dist
+          cp main.js manifest.json styles.css dist/
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-path: |
+            dist/main.js
+            dist/manifest.json
+            dist/styles.css
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/main.js
+            dist/manifest.json
+            dist/styles.css
+          generate_release_notes: true
