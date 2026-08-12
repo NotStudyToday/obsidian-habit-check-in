@@ -83,6 +83,28 @@
   white-space: nowrap;
 }
 
+/* ---- 主视图：范围切换 ---- */
+.habit-range-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 2px 14px 10px;
+}
+.habit-range-label {
+  font-size: var(--font-ui-small);
+  color: var(--text-muted);
+}
+.habit-range-btn {
+  padding: 2px 10px;
+  font-size: var(--font-ui-small);
+}
+.habit-range-btn.is-active {
+  background: var(--interactive-accent);
+  border-color: var(--interactive-accent);
+  color: var(--text-on-accent);
+}
+
 /* ---- 热力图网格 ---- */
 .habit-heatmap-head {
   display: grid;
@@ -177,7 +199,7 @@
   padding: 8px;
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--radius-m);
-  /* 全年：普通块级布局，不加任何宽度/滚动限制（与主视图一致） */
+  overflow-x: auto; /* 全年图在窄屏/盒内滚动，不撑破笔记 */
 }
 .habit-embed--compact {
   /* 3个月/当月：宽度随热力图内容收缩，外框贴合小图 */
@@ -429,3 +451,91 @@
 body.habit-checkin-loaded .dot-container > *:nth-child(n+5) {
   display: none;
 }
+
+/* ===== 移动端 / 窄屏适配（≤520px，覆盖手机竖屏与桌面缩窗预览） ===== */
+@media (max-width: 520px) {
+  /* 热力图：缩小格子，星期列吸顶 */
+  .habit-heatmap-head {
+    grid-template-columns: repeat(var(--habit-cols), 11px);
+    gap: 2px;
+    margin-left: 18px;
+  }
+  .habit-heatmap-grid {
+    grid-template-columns: repeat(var(--habit-cols), 11px);
+    grid-auto-rows: 11px;
+    gap: 2px;
+  }
+  .habit-heatmap-grid .habit-cell {
+    min-height: 11px;
+    height: 11px;
+  }
+  .habit-heatmap-days {
+    grid-template-rows: repeat(7, 11px);
+    gap: 2px;
+    width: 15px;
+    flex-basis: 15px;
+    margin-right: 3px;
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: var(--background-primary);
+  }
+  .habit-day-label {
+    font-size: 9px;
+    line-height: 11px;
+  }
+  .habit-month-label {
+    font-size: 9px;
+  }
+
+  /* 设置页：习惯行上下堆叠；触屏上拖拽 grip 无效故隐藏 */
+  .habit-sort-row.setting-item {
+    flex-wrap: wrap;
+  }
+  .habit-sort-row .setting-item-info {
+    flex: 1 1 100%;
+  }
+  .habit-sort-row .setting-item-control {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+  .habit-sort-row .setting-item-control .clickable-icon[aria-label="拖拽排序"],
+  .habit-sort-row .setting-item-control .clickable-icon[aria-label="Drag to sort"] {
+    display: none;
+  }
+
+  /* 表单弹窗：输入框防溢出，强度等级行换行 */
+  .modal input[type="number"],
+  .modal input[type="date"],
+  .habit-level-row input[type="number"] {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .habit-level-row {
+    flex-wrap: wrap;
+  }
+
+  /* 今日打卡视图：窄屏换行，避免按钮被挤出屏幕 */
+  .habit-today-row {
+    flex-wrap: wrap;
+  }
+  .habit-today-ctl {
+    flex-wrap: wrap;
+  }
+
+  /* 触摸滚动更跟手 */
+  .habit-block-body,
+  .habit-embed {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* ---- 真机 Obsidian 移动端兜底（横屏等视口 >520px 场景仍按移动布局） ---- */
+body.is-mobile .habit-sort-row .setting-item-control .clickable-icon[aria-label="拖拽排序"],
+body.is-mobile .habit-sort-row .setting-item-control .clickable-icon[aria-label="Drag to sort"] { display: none; }
+body.is-mobile .habit-sort-row.setting-item { flex-wrap: wrap; }
+body.is-mobile .habit-sort-row .setting-item-info { flex: 1 1 100%; }
+body.is-mobile .habit-sort-row .setting-item-control { flex-wrap: wrap; gap: 4px; }
+body.is-mobile .habit-heatmap-days { position: sticky; left: 0; z-index: 2; background: var(--background-primary); }
+body.is-mobile .habit-today-row { flex-wrap: wrap; }
+body.is-mobile .habit-today-ctl { flex-wrap: wrap; }

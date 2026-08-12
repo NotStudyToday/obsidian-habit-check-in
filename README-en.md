@@ -114,7 +114,10 @@ Embedded heatmaps stay **in sync with your check-ins** in real time.
 
 ## 💾 Data storage
 
-Check-in data is stored in `.obsidian/plugins/habit-checkin/data.json` (auto-created on first use). Back up your vault or simply copy this file. **Running timers are saved automatically when you close Obsidian** and settle automatically on next launch — nothing is lost.
+- **Habits / settings / timers**: stored in `.obsidian/plugins/habit-checkin/data.json`
+- **Check-in records**: split into per-day files under `records/YYYY-MM-DD.json` (one file per day)
+
+Storing records in per-day files makes cross-device sync (Obsidian Sync / Synology Drive / iCloud, etc.) safer — a sync conflict only affects a single small day file instead of the whole dataset. Back up your vault or simply copy the whole `habit-checkin` plugin folder. **Running timers are saved automatically when you close Obsidian** and settle automatically on next launch — nothing is lost.
 
 ## ❓ FAQ
 

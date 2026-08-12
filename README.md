@@ -118,7 +118,10 @@ habitId=xxxxxxxx
 
 ## 💾 数据存储
 
-打卡数据保存在 vault 的 `.obsidian/plugins/habit-checkin/data.json`（首次使用时自动生成）。备份 vault 或直接复制该文件即可。**计时中的任务会在关闭 Obsidian 后自动保存**，下次打开自动结算，不会丢。
+- **习惯 / 设置 / 计时器**：保存在 `.obsidian/plugins/habit-checkin/data.json`
+- **打卡记录**：按天拆分保存在同目录的 `records/YYYY-MM-DD.json` 小文件里（每天一个文件）
+
+打卡记录**按天分文件存储**：跨设备同步（Obsidian Sync / Synology Drive / iCloud 等）时，同步冲突只影响单个日期的小文件，历史数据更安全。备份 vault 或直接复制整个 `habit-checkin` 插件文件夹即可。**计时中的任务会在关闭 Obsidian 后自动保存**，下次打开自动结算，不会丢。
 
 ## ❓ 常见问题
 

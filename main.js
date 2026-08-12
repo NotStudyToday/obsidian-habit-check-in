@@ -24,6 +24,7 @@ const DEFAULT_DATA = {
     showStatMonth: true,    // 主视图统计：📅 本月完成
     showStatTotal: true,    // 主视图统计：✅ 总打卡
     showLegend: true,       // 主视图：强度分级图例
+    defaultRange: 'year',   // 主视图热力图默认范围：'year' / '3m' / 'month'
     language: null,         // 界面语言：'zh' / 'en' / null=跟随系统
   },
 };
@@ -109,6 +110,11 @@ const EN_STRINGS = {
   '📅 本月 {a}/{b}': '📅 This month {a}/{b}',
   '✅ 总 {n}{u}': '✅ Total {n}{u}',
   '等级{n} ≤{v}{u}': 'Level {n} ≤ {v}{u}',
+  '范围': 'Range',
+  '全年': 'Year',
+  '近三月': '3 months',
+  '当月': 'Month',
+  '已迁移历史打卡记录到按天分文件，数据完整保留': 'Migrated check-in records to per-day files; all data preserved',
   // —— 今日打卡视图 ——
   '还没有习惯，请先在「设置 → 习惯打卡」新建。': 'No habits yet. Create one in Settings → Habit Check-in.',
   '完成 {a}/{b} · {p}%': 'Done {a}/{b} · {p}%',
@@ -123,6 +129,8 @@ const EN_STRINGS = {
   '视图偏好': 'View preferences',
   '每周第一天': 'First day of week',
   '日历与热力图的起始列': 'Start column of the calendar / heatmap',
+  '主视图默认范围': 'Default main view range',
+  '主视图热力图默认显示范围，窄屏/手机自动优先近三月': 'Default heatmap range in the main view (narrow/mobile screens default to 3 months)',
   '功能图标（左侧栏）': 'Ribbon icons (left sidebar)',
   '主视图图标': 'Main view icon',
   '打开「习惯打卡统计」': 'Open "Habit Check-in stats"',
@@ -377,6 +385,14 @@ function getAccentColor() {
   return v || '#4ade80';
 }
 
+// 触屏/窄屏判定：真机（hover/pointer 媒体查询）或 dev:mobile 模拟/窄窗口均命中
+function isTouchOrNarrow() {
+  return window.matchMedia('(hover: none)').matches || window.matchMedia('(max-width: 520px)').matches;
+}
+function isCoarsePointer() {
+  return window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(max-width: 520px)').matches;
+}
+
 function planText(h) {
   if (h.endDate) return `${h.startDate} ~ ${h.endDate}`;
   if (h.weekly && h.weekly.length) return t('{d} 起 · 每周 {w}', { d: h.startDate, w: h.weekly.map(i => wd(i)).join('') });
@@ -542,6 +558,10 @@ function renderHeatmap(container, ctx) {
   for (const cell of data.cells) {
     const div = grid.createDiv({ cls: 'habit-cell' });
     styleCell(div, cell);
+    // 触屏/窄屏没有 hover 提示，点格子看当天打卡详情
+    if (cell.parts.length && isTouchOrNarrow()) {
+      div.addEventListener('click', () => new Notice(cell.title));
+    }
   }
 }
 
@@ -561,13 +581,25 @@ class HabitCheckinPlugin extends Plugin {
       if (!(k in DEFAULT_DATA.settings)) delete this.data.settings[k];
     }
     this.data.habits = Array.isArray(this.data.habits) ? this.data.habits : [];
-    this.data.records = this.data.records || {};
     this.data.timers = this.data.timers || {};
+    // 界面语言：优先用设置，否则跟随 Obsidian/系统（提前设置，迁移提示等可正确本地化）
+    _lang = detectLang(this.data.settings.language);
+    // —— 打卡记录按天分文件存储（records/YYYY-MM-DD.json），降低跨端文件同步冲突面 ——
+    this._dirtyDays = new Set();      // 本会话待落盘的日期集合
+    this._zeroed = new Set();         // 本会话清零的「习惯|日期」墓碑：合并时不复活对端旧值
+    this._deletedHabits = new Set();  // 本会话删除的习惯：写盘/合并时清除其残留记录
+    this._flushChain = Promise.resolve();
+    this._baseSaveData = this.saveData.bind(this); // 原始 saveData，迁移/写盘用
+    await this._initRecords(); // 迁移旧 data.json.records → 按天文件，再全部载入内存
+    // 包装 saveData：data.json 不再保存 records（打卡记录只走按天文件）
+    this.saveData = async (data) => {
+      try { await this._flushRecords(); } catch (e) { console.error('habit-checkin: 写按天记录失败', e); }
+      const persisted = Object.assign({}, data);
+      delete persisted.records;
+      return this._baseSaveData(persisted);
+    };
     // 从持久化数据恢复上次未结束的计时器；离线期间到点的倒计时放入待结算列表
     const pending = this._restoreTimers();
-
-    // 界面语言：优先用设置，否则跟随 Obsidian/系统
-    _lang = detectLang(this.data.settings.language);
 
     this.registerView(VIEW_TYPE, leaf => new HabitView(leaf, this));
     this.registerView(TODAY_VIEW_TYPE, leaf => {
@@ -630,6 +662,11 @@ class HabitCheckinPlugin extends Plugin {
 
     this.registerEvent(this.app.workspace.on('css-change', () => this.emitDataChange()));
 
+    // 窗口重新聚焦时拉取对端同步下来的按天记录（Synology Drive 等文件级同步）
+    this._onFocus = () => { this.refreshRecords(); };
+    window.addEventListener('focus', this._onFocus);
+    this.register(() => window.removeEventListener('focus', this._onFocus));
+
     // 补录离线期间到点的倒计时（如昨晚启动 25 分钟倒计时后关闭 Obsidian，下次打开时自动按完整预设记录）
     for (const p of pending) {
       try { await this.finishTimer(p.id, p.preset); } catch (e) { console.error('habit-checkin: 结算离线计时器失败', e); }
@@ -640,6 +677,146 @@ class HabitCheckinPlugin extends Plugin {
     if (this._dotStyleEl) this._dotStyleEl.remove();
     if (this._listeners) this._listeners.clear();
     document.body.classList.remove('habit-checkin-loaded');
+  }
+
+  // ---- 按天分文件存储 ----
+  get recordsDir() {
+    return this.app.vault.configDir + '/plugins/' + this.manifest.id + '/records';
+  }
+  async _ensureRecordsDir() {
+    const a = this.app.vault.adapter;
+    if (!(await a.exists(this.recordsDir))) await a.mkdir(this.recordsDir);
+  }
+  // 初始化：把 data.json 里旧 records 迁移成按天文件，再全部载入内存（结构不变）
+  async _initRecords() {
+    const a = this.app.vault.adapter;
+    const dir = this.recordsDir;
+    const legacy = (this.data.records && typeof this.data.records === 'object') ? this.data.records : {};
+    const byDay = {};
+    let n = 0;
+    for (const hid in legacy) {
+      const m = legacy[hid];
+      if (!m || typeof m !== 'object') continue;
+      for (const key in m) {
+        const c = Number(m[key]);
+        if (c > 0) { n++; (byDay[key] = byDay[key] || {})[hid] = c; }
+      }
+    }
+    // 迁移旧版 data.json.records → 按天文件。
+    // 与已有按天文件【合并】而非覆盖（多设备过渡期对端可能已有更新记录）；
+    // 全部写入成功才清空 data.json 旧 records，失败则保留、下次启动重试，绝不丢数据。
+    let migrated = true;
+    if (n > 0) {
+      try {
+        await this._ensureRecordsDir();
+        for (const key in byDay) {
+          const merged = Object.assign({}, byDay[key]);
+          const fp = dir + '/' + key + '.json';
+          let existing = {};
+          try { existing = JSON.parse(await a.read(fp)) || {}; } catch (e) { existing = {}; }
+          for (const hid in existing) {
+            if (hid in merged) merged[hid] = Math.max(merged[hid], existing[hid]);
+            else merged[hid] = existing[hid];
+          }
+          try { await a.write(fp, JSON.stringify(merged)); } catch (e) { migrated = false; console.error('habit-checkin: 写按天记录失败', key, e); }
+        }
+      } catch (e) { migrated = false; console.error('habit-checkin: 迁移旧打卡记录失败', e); }
+    }
+    const records = {};
+    try {
+      await this._ensureRecordsDir();
+      const entries = await a.list(dir);
+      await Promise.all((entries.files || []).map(async f => {
+        const name = f.split('/').pop();
+        if (!/^\d{4}-\d{2}-\d{2}\.json$/.test(name)) return;
+        const key = name.slice(0, 10);
+        let day = {};
+        try { day = JSON.parse(await a.read(f)) || {}; } catch (e) { return; }
+        for (const hid in day) {
+          const c = Number(day[hid]);
+          if (c > 0) (records[hid] = records[hid] || {})[key] = c;
+        }
+      }));
+    } catch (e) { console.error('habit-checkin: 加载按天打卡记录失败', e); }
+    this.data.records = records;
+    if (n > 0 && migrated) {
+      try {
+        const clean = Object.assign({}, this.data);
+        delete clean.records;
+        await this._baseSaveData(clean);
+      } catch (e) { console.error('habit-checkin: 清理旧 records 字段失败', e); }
+      try { new Notice(t('已迁移历史打卡记录到按天分文件，数据完整保留')); } catch (e) {}
+    } else if (n > 0) {
+      console.warn('habit-checkin: 打卡记录迁移未完成，已保留 data.json 旧 records，下次启动将重试');
+    }
+  }
+  // 把待落盘日期写为按天文件；串行化避免并发覆盖
+  async _flushRecords() {
+    const run = this._flushChain.then(() => this._doFlush());
+    this._flushChain = run.catch(() => {});
+    return run;
+  }
+  async _doFlush() {
+    if (!this._dirtyDays || this._dirtyDays.size === 0) return;
+    const a = this.app.vault.adapter;
+    const dir = this.recordsDir;
+    const records = this.data.records || {};
+    const days = [...this._dirtyDays];
+    this._dirtyDays.clear();
+    await this._ensureRecordsDir();
+    for (const key of days) {
+      const local = {};
+      for (const hid in records) {
+        const c = records[hid] && records[hid][key];
+        if (c && c > 0) local[hid] = c;
+      }
+      let disk = {};
+      const fp = dir + '/' + key + '.json';
+      try { disk = JSON.parse(await a.read(fp)) || {}; } catch (e) { disk = {}; }
+      const merged = {};
+      for (const hid in local) merged[hid] = local[hid]; // 本机编辑过：以本机为准
+      for (const hid in disk) {
+        if (this._deletedHabits.has(hid)) continue;       // 本会话明确删除的习惯不复活
+        if (this._zeroed.has(hid + '|' + key)) continue;  // 本会话清零的不复活
+        if (!(hid in merged)) merged[hid] = disk[hid];    // 采纳对端已同步下来的记录
+      }
+      if (!Object.keys(merged).length) {
+        try { await a.remove(fp); } catch (e) {}
+        continue;
+      }
+      await a.write(fp, JSON.stringify(merged));
+    }
+  }
+  // 扫描按天目录，把对端同步下来的新记录并入内存（窗口聚焦 / 视图打开时调用）
+  async refreshRecords() {
+    const a = this.app.vault.adapter;
+    const dir = this.recordsDir;
+    const records = this.data.records || {};
+    let changed = false;
+    try {
+      if (!(await a.exists(dir))) return false;
+      const entries = await a.list(dir);
+      for (const f of entries.files || []) {
+        const name = f.split('/').pop();
+        if (!/^\d{4}-\d{2}-\d{2}\.json$/.test(name)) continue;
+        const key = name.slice(0, 10);
+        let day = {};
+        try { day = JSON.parse(await a.read(f)) || {}; } catch (e) { continue; }
+        for (const hid in day) {
+          if (this._deletedHabits.has(hid)) continue;
+          if (this._zeroed.has(hid + '|' + key)) continue;
+          const c = Number(day[hid]);
+          if (!(c > 0)) continue;
+          const cur = records[hid] && records[hid][key];
+          if (cur === undefined || c > cur) {
+            (records[hid] = records[hid] || {})[key] = c;
+            changed = true;
+          }
+        }
+      }
+    } catch (e) { return false; }
+    if (changed) this.emitDataChange();
+    return changed;
   }
 
   // ---- 事件总线 ----
@@ -775,8 +952,14 @@ class HabitCheckinPlugin extends Plugin {
     else next = Math.min(999999, cur + step); // 高上限，避免误触撑爆记录
 
     if (!this.data.records[habitId]) this.data.records[habitId] = {};
-    if (next > 0) this.data.records[habitId][key] = next;
-    else delete this.data.records[habitId][key];
+    if (next > 0) {
+      this.data.records[habitId][key] = next;
+      if (this._zeroed) this._zeroed.delete(habitId + '|' + key); // 重新打卡：清除清零墓碑
+    } else {
+      delete this.data.records[habitId][key];
+      if (this._zeroed) this._zeroed.add(habitId + '|' + key); // 清零墓碑：写盘合并时不复活对端旧值
+    }
+    if (this._dirtyDays) this._dirtyDays.add(key); // 标记该天待写盘（按天分文件）
 
     await this.saveData(this.data);
     this.emitDataChange();
@@ -866,6 +1049,8 @@ class HabitView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
+    this._rangeTouched = false;                        // 用户是否手动切过范围
+    this.range = this.plugin.data.settings.defaultRange || 'year'; // 主视图当前范围：'year'/'3m'/'month'
   }
 
   getViewType() { return VIEW_TYPE; }
@@ -874,14 +1059,19 @@ class HabitView extends ItemView {
 
   async onOpen() {
     this._unsub = this.plugin.onDataChange(() => this.rerender());
+    // 窄屏/触屏默认折叠到近三月，便于一眼看完；用户手动切换后以用户为准
+    if (!this._rangeTouched && isTouchOrNarrow() && this.range === 'year') {
+      this.range = '3m';
+    }
     this.rerender();
+    this.plugin.refreshRecords().then(() => this.rerender()); // 拉取对端同步下来的新记录
   }
 
   onClose() {
     if (this._unsub) this._unsub();
   }
 
-  // 主视图 = 顶部今日概览 + 每个习惯一个区块（标题/统计 + 年热力图，只读）
+  // 主视图 = 顶部今日概览 + 范围切换 + 每个习惯一个区块（标题/统计 + 热力图，只读）
   rerender() {
     const { contentEl } = this;
     contentEl.empty();
@@ -911,7 +1101,26 @@ class HabitView extends ItemView {
       return;
     }
 
-    // 每个习惯一个区块：标题 + 统计 + 年热力图
+    // 范围切换：全年 / 近三月 / 当月（全局生效，选择会记住）
+    const rangeRow = contentEl.createDiv({ cls: 'habit-range-row' });
+    rangeRow.createSpan({ cls: 'habit-range-label', text: t('范围') });
+    for (const r of ['year', '3m', 'month']) {
+      const btn = rangeRow.createEl('button', {
+        cls: 'habit-btn habit-range-btn' + (this.range === r ? ' is-active' : ''),
+        text: r === 'year' ? t('全年') : r === '3m' ? t('近三月') : t('当月'),
+      });
+      btn.addEventListener('click', () => {
+        this._rangeTouched = true;
+        this.range = r;
+        if (this.plugin.data.settings.defaultRange !== r) {
+          this.plugin.data.settings.defaultRange = r;
+          this.plugin.saveData(this.plugin.data);
+        }
+        this.rerender();
+      });
+    }
+
+    // 每个习惯一个区块：标题 + 统计 + 热力图
     for (const h of habits) {
       const block = contentEl.createDiv({ cls: 'habit-block' });
       const comp = U.monthCompletion(h, records, now.getFullYear(), now.getMonth());
@@ -928,6 +1137,7 @@ class HabitView extends ItemView {
         records,
         settings,
         habitId: h.id,
+        range: this.range,
         anchor: new Date(),
       });
       // 强度分级图例（可设置开关）
@@ -967,6 +1177,7 @@ class HabitTodayView extends ItemView {
     this._unsub = this.plugin.onDataChange(() => this.rerender());
     this._startTicker();
     this.rerender();
+    this.plugin.refreshRecords().then(() => this.rerender());
   }
   onClose() {
     this._stopTicker();
@@ -1451,6 +1662,20 @@ class HabitCheckinSettingTab extends PluginSettingTab {
           this.plugin.emitDataChange();
         }));
 
+    new Setting(containerEl)
+      .setName(t('主视图默认范围'))
+      .setDesc(t('主视图热力图默认显示范围，窄屏/手机自动优先近三月'))
+      .addDropdown(d => d
+        .addOption('year', t('全年'))
+        .addOption('3m', t('近三月'))
+        .addOption('month', t('当月'))
+        .setValue(this.plugin.data.settings.defaultRange || 'year')
+        .onChange(async v => {
+          this.plugin.data.settings.defaultRange = v;
+          await this.plugin.saveData(this.plugin.data);
+          this.plugin.emitDataChange();
+        }));
+
     containerEl.createEl('h3', { text: t('功能图标（左侧栏）') });
     const iconSetting = (name, desc, keyEnabled, keyIcon, defIcon) => {
       const st = new Setting(containerEl).setName(name).setDesc(desc);
@@ -1510,8 +1735,8 @@ class HabitCheckinSettingTab extends PluginSettingTab {
         .addExtraButton(b => b.setIcon('down-chevron-glyph').setTooltip(t('下移')).onClick(() => this.move(h, 1)))
         .addExtraButton(b => b.setIcon('trash').setTooltip(t('删除')).onClick(() => this.remove(h)));
       s.settingEl.style.borderBottom = 'none';
-      // 整行可拖拽排序
-      s.settingEl.draggable = true;
+      // 整行可拖拽排序（触屏/窄屏用上下箭头，不启用 HTML5 拖拽）
+      if (!isCoarsePointer()) s.settingEl.draggable = true;
       s.settingEl.addClass('habit-sort-row');
       s.settingEl.addEventListener('dragstart', (e) => {
         e.dataTransfer.setData('text/plain', h.id);
@@ -1581,7 +1806,10 @@ class HabitCheckinSettingTab extends PluginSettingTab {
     if (!window.confirm(t('确定删除习惯「{name}」吗？相关打卡记录也会一并删除。', { name: h.name }))) return;
     const data = this.plugin.data;
     data.habits = data.habits.filter(x => x.id !== h.id);
+    const affected = Object.keys((data.records && data.records[h.id]) || {});
     delete data.records[h.id];
+    if (this.plugin._deletedHabits) this.plugin._deletedHabits.add(h.id); // 墓碑：写盘/合并时清除该习惯残留
+    if (this.plugin._dirtyDays) affected.forEach(d => this.plugin._dirtyDays.add(d)); // 重写受影响日期，清除该习惯的按天文件残留
     [...data.habits].sort((a, b) => a.sort - b.sort).forEach((x, i) => { x.sort = i; });
     await this.plugin.saveData(data);
     this.plugin.emitDataChange();
@@ -1591,4 +1819,5 @@ class HabitCheckinSettingTab extends PluginSettingTab {
 
 module.exports = HabitCheckinPlugin;
 
+/* nosourcemap */
 /* nosourcemap */
