@@ -61,7 +61,6 @@ const EN_STRINGS = {
   '倒计时': 'Countdown',
   '正向计时': 'Stopwatch',
   '习惯名称': 'Habit name',
-  '分钟': 'min',
   // —— 表单描述 / 下拉 ——
   '如：背单词、跑步': 'e.g. Memorize words, run',
   '可选 emoji，如 📖': 'Optional emoji, e.g. 📖',
@@ -69,7 +68,6 @@ const EN_STRINGS = {
   '勾选「长期」则没有结束日期': 'Check "Ongoing" to have no end date',
   '目标数量，与「每次打卡量」同单位；支持小数': 'Target amount, same unit as "Amount per check-in"; decimals allowed',
   '开启后按次数区间显示不同颜色，打卡变为次数叠加（点一次 +1）': 'Color by count ranges; check-in adds counts (+1 per tap)',
-  '强度分级时，每日目标 = 最高等级上限（自动同步）': 'With levels, daily goal = highest level max (auto-synced)',
   '固定：点 +/− 加固定值；手动：先填数量再点 +/−；计时：分钟计时': 'Fixed: +/- adds a fixed amount; Manual: enter the amount first; Timer: count minutes',
   '正向：点开始/结束，用时计入；倒计时：预设分钟数，可提前结束': 'Stopwatch: start/stop counts elapsed time; Countdown: preset minutes, can stop early',
   '倒计时的默认预设分钟数': 'Default countdown minutes',
@@ -150,8 +148,8 @@ const EN_STRINGS = {
   '习惯列表': 'Habit list',
   '拖拽行或上下箭头排序；点「复制」图标可把该习惯的热力图嵌入任意笔记。': 'Drag rows or use the arrows to sort; click the copy icon to embed a habit\'s heatmap into any note.',
   '暂无习惯，点击上方「新建习惯」创建。': 'No habits yet. Click "New habit" above to create one.',
-  '强度分级 {n} 级': 'Intensity {n} levels',
   '目标 {v}{u}': 'Goal {v}{u}',
+  ' · {n} 级强度': ' · {n} levels',
   ' · 每次 +{v}{u}': ' · +{v}{u} each',
   '拖拽排序': 'Drag to sort',
   '复制嵌入代码': 'Copy embed code',
@@ -269,9 +267,8 @@ const U = (function () {
     return Boolean((h.target !== 1) || h.unit || (h.step && h.step !== 1) || (h.levels && h.levels.length));
   }
 
-  // 习惯的每日目标量：分级的最高上限；计数型为目标；打勾型为 1
+  // 习惯的每日目标量：计数型为目标；打勾型为 1（强度分级时目标独立于等级上限，可自定义）
   function goalOf(h) {
-    if (h.levels && h.levels.length) return h.levels[h.levels.length - 1].max;
     return isCounting(h) ? h.target : 1;
   }
   // 习惯的每次打卡量：未自定义步长时默认 1
@@ -285,7 +282,6 @@ const U = (function () {
 
   function isCompleted(habit, key, records) {
     const c = countOf(habit.id, key, records);
-    if (habit.levels && habit.levels.length) return c >= habit.levels[habit.levels.length - 1].max;
     return isCounting(habit) ? c >= habit.target : c >= 1;
   }
 
@@ -530,6 +526,42 @@ function resolveHabits(ctx) {
   return habits.filter(h => h.id === ctx.habitId);
 }
 
+// 让热力图容器支持按住鼠标/手指拖拽平移（配合始终可见的横向滚动条）
+function enableDragScroll(container) {
+  let dragging = false, startX = 0, startLeft = 0;
+  container.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return; // 仅响应左键
+    dragging = true;
+    startX = e.clientX;
+    startLeft = container.scrollLeft;
+    container.addClass('is-dragging');
+    try { container.setPointerCapture(e.pointerId); } catch (err) {}
+  });
+  container.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    container.scrollLeft = startLeft - (e.clientX - startX);
+  });
+  const stop = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    container.removeClass('is-dragging');
+    try { container.releasePointerCapture(e.pointerId); } catch (err) {}
+  };
+  container.addEventListener('pointerup', stop);
+  container.addEventListener('pointercancel', stop);
+}
+
+// 把当月滚动到热力图可视区域中间（内容未溢出时不做任何事）
+function centerOnCurrentMonth(container, anchor) {
+  const firstOfMonth = U.dateKey(new Date(anchor.getFullYear(), anchor.getMonth(), 1));
+  const cell = container.querySelector('.habit-cell[data-date="' + firstOfMonth + '"]');
+  if (!cell) return;
+  const cRect = container.getBoundingClientRect();
+  const cellRect = cell.getBoundingClientRect();
+  const left = (cellRect.left - cRect.left) + cellRect.width / 2 - container.clientWidth / 2;
+  container.scrollLeft = Math.max(0, Math.min(left, container.scrollWidth - container.clientWidth));
+}
+
 function renderHeatmap(container, ctx) {
   container.empty();
   const anchor = ctx.anchor || new Date();
@@ -563,6 +595,22 @@ function renderHeatmap(container, ctx) {
       div.addEventListener('click', () => new Notice(cell.title));
     }
   }
+
+  // 拖拽平移（同一容器只绑定一次，避免重绘重复监听）
+  if (!container._habitDragBound) {
+    container._habitDragBound = true;
+    enableDragScroll(container);
+  }
+  // 首次渲染居中当月 / 重绘恢复滚动位置（等布局完成后再滚，避免尺寸未定）
+  requestAnimationFrame(() => {
+    if (!container.isConnected || container.clientWidth <= 0) return;
+    if (container.scrollWidth <= container.clientWidth) return; // 没溢出就不用滚
+    if (ctx.centerMonth) {
+      centerOnCurrentMonth(container, anchor);
+    } else if (ctx.restoreScroll > 0) {
+      container.scrollLeft = Math.min(ctx.restoreScroll, container.scrollWidth - container.clientWidth);
+    }
+  });
 }
 
 /* =========================================================
@@ -994,8 +1042,6 @@ class HabitCheckinPlugin extends Plugin {
     } else if (hadTimer) {
       await this.saveData(this.data); // 清除了持久化计时器，需要落盘
       this.emitDataChange();
-    } else {
-      this.emitDataChange();
     }
   }
 
@@ -1004,9 +1050,10 @@ class HabitCheckinPlugin extends Plugin {
     const params = parseBlockParams(source);
     const range = params.range === 'month' || params.range === '3m' ? params.range : 'year'; // year / 3m / month
     const draw = () => {
-      if (!el.isConnected) return;
       try {
-        el.empty();
+        // 记录滚动状态，交给 renderHeatmap 决定「首次居中 / 重绘恢复」（它内部会 empty 重建）
+        const hadHeatmap = !!el.querySelector('.habit-heatmap-grid');
+        const prevLeft = el.scrollLeft || 0;
         el.addClass('habit-embed');
         // 全年默认撑满整行；3个月/当月用紧凑型（宽度随内容收缩）
         if (range !== 'year') el.addClass('habit-embed--compact');
@@ -1015,10 +1062,12 @@ class HabitCheckinPlugin extends Plugin {
         el.style.borderRadius = '6px';
         el.style.padding = '8px';
         if (!this.data.habits.length) {
+          el.empty();
           el.createDiv({ cls: 'habit-embed-empty', text: t('还没有习惯，请先在「设置 → 习惯打卡」新建。') });
           return;
         }
         if (params.habitId && params.habitId !== 'all' && !this.data.habits.some(h => h.id === params.habitId)) {
+          el.empty();
           el.createDiv({ cls: 'habit-embed-empty', text: t('未找到习惯 ID：{id}', { id: params.habitId }) });
           return;
         }
@@ -1029,6 +1078,8 @@ class HabitCheckinPlugin extends Plugin {
           habitId: params.habitId || 'all',
           range,
           anchor: new Date(),
+          centerMonth: !hadHeatmap, // 首次渲染：居中当月；重绘：保留用户滚动位置
+          restoreScroll: hadHeatmap ? prevLeft : 0,
         });
       } catch (e) {
         console.error('habit-checkin: 嵌入渲染失败', e);
@@ -1036,8 +1087,21 @@ class HabitCheckinPlugin extends Plugin {
         el.createDiv({ cls: 'habit-embed-empty', text: t('⚠️ 热力图渲染失败：{msg}', { msg: e && e.message ? e.message : e }) });
       }
     };
-    draw();
-    const off = this.onDataChange(draw);
+    // Obsidian 渲染代码块时 el 可能尚未挂载到文档（Live Preview / 首次构建）：
+    // 直接渲染进元素，挂载后内容自然可见；若仍未挂载则等它就绪再画。
+    // 不要用 `!el.isConnected` 提前返回，否则块会一直空白直到笔记整体重渲染。
+    if (el.isConnected) {
+      draw();
+    } else {
+      let tries = 0;
+      const whenReady = () => {
+        if (el.isConnected) { draw(); return; }
+        if (++tries < 20) requestAnimationFrame(whenReady);
+      };
+      whenReady();
+    }
+    // 数据变化时重绘；未挂载的元素跳过（关闭/后台标签页的嵌入不浪费渲染）
+    const off = this.onDataChange(() => { if (el.isConnected) draw(); });
     this.register(() => off());
   }
 }
@@ -1074,6 +1138,10 @@ class HabitView extends ItemView {
   // 主视图 = 顶部今日概览 + 范围切换 + 每个习惯一个区块（标题/统计 + 热力图，只读）
   rerender() {
     const { contentEl } = this;
+    // 重绘前记录每个热力图块的横向滚动位置（按现有块顺序对应）；首次渲染则居中当月
+    const prevScroll = [];
+    for (const b of contentEl.querySelectorAll('.habit-block-body')) prevScroll.push(b.scrollLeft || 0);
+    const firstRender = !this._heatmapCentered;
     contentEl.empty();
     const habits = [...this.plugin.data.habits].sort((a, b) => a.sort - b.sort);
     const records = this.plugin.data.records;
@@ -1097,9 +1165,11 @@ class HabitView extends ItemView {
     hint.createSpan({ text: t(' 或命令「今日打卡（右侧栏）」') });
 
     if (!habits.length) {
+      this._heatmapCentered = true; // 无习惯时也视为已渲染，避免新增后误判
       contentEl.createDiv({ cls: 'habit-dash-empty', text: t('还没有习惯，去「设置 → 习惯打卡」新建一个吧') });
       return;
     }
+    this._heatmapCentered = true;
 
     // 范围切换：全年 / 近三月 / 当月（全局生效，选择会记住）
     const rangeRow = contentEl.createDiv({ cls: 'habit-range-row' });
@@ -1112,6 +1182,7 @@ class HabitView extends ItemView {
       btn.addEventListener('click', () => {
         this._rangeTouched = true;
         this.range = r;
+        if (r === 'year') this._heatmapCentered = false; // 切回全年时重新居中当月
         if (this.plugin.data.settings.defaultRange !== r) {
           this.plugin.data.settings.defaultRange = r;
           this.plugin.saveData(this.plugin.data);
@@ -1121,7 +1192,8 @@ class HabitView extends ItemView {
     }
 
     // 每个习惯一个区块：标题 + 统计 + 热力图
-    for (const h of habits) {
+    for (let bi = 0; bi < habits.length; bi++) {
+      const h = habits[bi];
       const block = contentEl.createDiv({ cls: 'habit-block' });
       const comp = U.monthCompletion(h, records, now.getFullYear(), now.getMonth());
       const s = settings;
@@ -1139,6 +1211,8 @@ class HabitView extends ItemView {
         habitId: h.id,
         range: this.range,
         anchor: new Date(),
+        centerMonth: firstRender, // 首次渲染居中当月
+        restoreScroll: prevScroll[bi] || 0, // 重绘保留该块的滚动位置
       });
       // 强度分级图例（可设置开关）
       if (h.levels && h.levels.length && settings.showLegend !== false) {
@@ -1400,7 +1474,7 @@ class HabitFormModal extends Modal {
     endSetting.controlEl.appendChild(longLabel);
     endSetting.controlEl.appendChild(endInput);
 
-    // 每日目标（非强度分级时使用）：与「每次打卡量」同单位，支持小数
+    // 每日目标：与「每次打卡量」同单位，支持小数；开启强度分级时默认=最高等级上限，可自行修改
     const targetSetting = new Setting(contentEl)
       .setName(t('每日目标'))
       .setDesc(t('目标数量，与「每次打卡量」同单位；支持小数'));
@@ -1425,22 +1499,13 @@ class HabitFormModal extends Modal {
         form.useLevels = v;
         presetRow.toggle(v);
         levelBox.toggle(v);
-        syncTargetFromLevels();
+        // 开启分级时，目标默认取当前最高等级上限；之后可自由修改
+        if (v && form.levels.length) {
+          const lastMax = form.levels[form.levels.length - 1].max;
+          form.target = lastMax;
+          targetInput.value = String(lastMax);
+        }
       }));
-
-    // 每日目标与强度分级联动：分级时目标=最高等级上限（只读），否则可编辑
-    function syncTargetFromLevels() {
-      if (form.useLevels && form.levels.length) {
-        const lastMax = form.levels[form.levels.length - 1].max;
-        form.target = lastMax;
-        targetInput.value = String(lastMax);
-        targetInput.disabled = true;
-        targetSetting.setDesc(t('强度分级时，每日目标 = 最高等级上限（自动同步）'));
-      } else {
-        targetInput.disabled = false;
-        targetSetting.setDesc(t('目标数量，与「每次打卡量」同单位；支持小数'));
-      }
-    }
 
     // 预设配色（强度分级时显示）：一键应用五级渐变，再填强度数值即可
     const presetRow = contentEl.createDiv({ cls: 'habit-preset-row' });
@@ -1470,7 +1535,7 @@ class HabitFormModal extends Modal {
         row.createSpan({ cls: 'habit-level-tag', text: t('等级{n}', { n: i + 1 }) });
         row.createSpan({ cls: 'habit-level-cond', text: '≤' });
         const maxInput = row.createEl('input', { attr: { type: 'number', min: '0.1', step: 'any', value: String(lv.max) } });
-        maxInput.addEventListener('input', () => { lv.max = Math.max(0.1, parseFloat(maxInput.value) || 1); syncTargetFromLevels(); });
+        maxInput.addEventListener('input', () => { lv.max = Math.max(0.1, parseFloat(maxInput.value) || 1); });
         const colorInput = row.createEl('input', { attr: { type: 'color', value: lv.color } });
         colorInput.addEventListener('change', () => { lv.color = colorInput.value; });
         row.createEl('button', { cls: 'habit-btn', text: '✕' }).addEventListener('click', () => { form.levels.splice(i, 1); renderLevels(); });
@@ -1480,7 +1545,6 @@ class HabitFormModal extends Modal {
         form.levels.push({ max: (last ? last.max : 0) + 5, color: last ? last.color : '#4ade80' });
         renderLevels();
       });
-      syncTargetFromLevels();
     }
     renderLevels();
 
@@ -1576,7 +1640,7 @@ class HabitFormModal extends Modal {
           color: form.color,
           startDate: form.startDate,
           endDate: form.endDate,
-          target: levels.length ? levels[levels.length - 1].max : form.target,
+          target: form.target,
           levels,
           step: Math.max(0.1, parseFloat(form.step) || 1),
           unit: form.inputMode === 'timer' ? timerUnit() : (form.unit || ''),
@@ -1593,7 +1657,7 @@ class HabitFormModal extends Modal {
         color: form.color,
         startDate: form.startDate,
         endDate: form.endDate,
-        target: levels.length ? levels[levels.length - 1].max : form.target,
+        target: form.target,
         levels,
         step: Math.max(0.1, parseFloat(form.step) || 1),
         unit: form.inputMode === 'timer' ? timerUnit() : (form.unit || ''),
@@ -1722,7 +1786,7 @@ class HabitCheckinSettingTab extends PluginSettingTab {
       const h = habits[i];
       const unitS = unitOf(h);
       const isCount = U.isCounting(h);
-      const goalS = h.levels && h.levels.length ? t('强度分级 {n} 级', { n: h.levels.length }) : t('目标 {v}{u}', { v: h.target, u: unitS });
+      const goalS = t('目标 {v}{u}', { v: h.target, u: unitS }) + (h.levels && h.levels.length ? t(' · {n} 级强度', { n: h.levels.length }) : '');
       const stepS = isCount ? t(' · 每次 +{v}{u}', { v: h.step || 1, u: unitS }) : '';
       const desc = `${h.color} · ${goalS}${stepS} · ${planText(h)}`;
       const s = new Setting(containerEl)

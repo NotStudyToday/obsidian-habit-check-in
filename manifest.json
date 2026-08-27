@@ -1,7 +1,7 @@
 {
   "id": "habit-checkin",
   "name": "Habit Check-in",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "minAppVersion": "1.2.0",
   "description": "Check in habits from the right sidebar with one click, track streaks and yearly heatmaps, and embed habit heatmaps into notes.",
   "author": "NotStudyToday",

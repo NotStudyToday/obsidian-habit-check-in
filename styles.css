@@ -35,7 +35,7 @@
   min-width: 120px;
 }
 .habit-block-body {
-  overflow-x: auto;
+  overflow-x: scroll; /* 始终显示横向滚动条，支持拖动 */
 }
 .habit-dash-head {
   display: flex;
@@ -199,7 +199,7 @@
   padding: 8px;
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--radius-m);
-  overflow-x: auto; /* 全年图在窄屏/盒内滚动，不撑破笔记 */
+  overflow-x: scroll; /* 始终显示横向滚动条，支持拖动 */
 }
 .habit-embed--compact {
   /* 3个月/当月：宽度随热力图内容收缩，外框贴合小图 */
@@ -212,6 +212,38 @@
   padding: 8px;
   font-size: var(--font-ui-small);
   color: var(--text-muted);
+}
+
+/* ---- 热力图横向滚动条：始终可见、可拖拽平移 ---- */
+.habit-embed,
+.habit-block-body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--background-modifier-border) transparent;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y; /* 页面纵向滚动保留，横向拖拽交给 JS */
+}
+.habit-embed.is-dragging,
+.habit-block-body.is-dragging {
+  cursor: grabbing;
+}
+.habit-embed::-webkit-scrollbar,
+.habit-block-body::-webkit-scrollbar {
+  height: 8px;
+}
+.habit-embed::-webkit-scrollbar-thumb,
+.habit-block-body::-webkit-scrollbar-thumb {
+  background: var(--background-modifier-border);
+  border-radius: 4px;
+}
+.habit-embed::-webkit-scrollbar-thumb:hover,
+.habit-block-body::-webkit-scrollbar-thumb:hover {
+  background: var(--background-modifier-border-hover);
+}
+.habit-embed::-webkit-scrollbar-track,
+.habit-block-body::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* ---- 习惯表单弹窗 ---- */

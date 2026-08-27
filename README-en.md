@@ -35,7 +35,7 @@ After a check-in, the date is automatically marked with a dot in the Calendar pl
 
 ### 3. Intensity-level colors
 
-Add your own intensity levels, each with a value range and color; the heatmap is color-coded by intensity automatically.
+Add your own intensity levels, each with a value range and color; the heatmap is color-coded by intensity automatically. With levels enabled, the **daily goal** stays customizable (it defaults to the highest level); completion is judged against your goal, and levels only drive the heatmap color depth.
 
 ![Intensity levels](assets/intensity-levels.png)
 
@@ -110,7 +110,7 @@ habitId=xxxxxxxx
 | `habitId` | habit id / `all` | `all` or omitted = all habits |
 | `range` | `year` / `3m` / `month` | full year (default) / 3 months / current month |
 
-Embedded heatmaps stay **in sync with your check-ins** in real time.
+Embedded heatmaps stay **in sync with your check-ins** in real time. On narrow widths the full-year view **centers on the current month** by default, and supports a **horizontal scrollbar** and **drag-to-pan**.
 
 ## 💾 Data storage
 
