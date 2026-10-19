@@ -10,7 +10,7 @@
 
 > 一款 Obsidian 插件：在右侧栏**一键打卡**，支持 **单次 / 目标 / 计时** 三种打卡方式，自带 **GitHub 风格热力图**、**强度分级配色**，可与 **Calendar 插件联动**，还能把热力图**嵌入任意笔记**。
 
-![主页面](assets/main-page.png)
+![主页面](main-page.png)
 
 ## ✨ 功能特性
 
@@ -19,29 +19,29 @@
 **① 单次打卡**
 设置每日打卡事项，点击打卡按钮即可切换"已打卡 / 未打卡"状态。
 
-![单次打卡](assets/checkin-single.gif)
+![单次打卡](checkin-single.gif)
 
 **② 目标打卡**
 设置每日打卡目标，例如"每天喝水 1000ml"。可以自定义每次打卡的饮水量，点击 **+** 号累加，也可以手动输入单次打卡量。
 
-![目标打卡](assets/checkin-target.gif)
+![目标打卡](checkin-target.gif)
 
 **③ 时间打卡**
 支持**正向计时**与**倒计时**两种模式。倒计时可自定义时长（如 45 分钟），点击"开始"进入倒计时，时间结束自动把统计时长计入打卡。
 
-![时间打卡](assets/checkin-timer.gif)
+![时间打卡](checkin-timer.gif)
 
 ### 2. 与 Calendar 插件联动
 
 当日完成打卡后，日历对应日期会自动打点标记，一目了然。
 
-![Calendar 联动](assets/calendar-link.png)
+![Calendar 联动](calendar-link.png)
 
 ### 3. 强度分级配色
 
 可自由添加强度分级，并为每一级设置对应的数值范围与颜色，热力图会按强度自动着色。开启分级后，**每日目标**仍可自定义（默认取最高等级上限），是否完成按你设定的目标判定，分级只影响热力图颜色深浅。
 
-![强度分级](assets/intensity-levels.png)
+![强度分级](intensity-levels.png)
 
 ## 📦 安装方式
 
@@ -77,19 +77,19 @@
 
 1. 设置 → **Habit Check-in** → **+ 新建习惯**
 
-![新建习惯](assets/create-habit-1.png)
+![新建习惯](create-habit-1.png)
 
 2. 填写基本信息：**名称**、**图标**（支持 Emoji）、**打卡方式**、**每次打卡量**等。
 
-![基本信息](assets/create-habit-2.png)
+![基本信息](create-habit-2.png)
 
 3. 如需强度分级：打开"强度分级"开关，设置对应的**等级、数值、颜色**。
 
-![强度分级设置](assets/create-habit-3.png)
+![强度分级设置](create-habit-3.png)
 
 4. 点击**保存**即创建成功，之后只需在**右侧栏**打卡即可。
 
-![打卡界面](assets/create-habit-4.png)
+![打卡界面](create-habit-4.png)
 
 ### 查看统计
 
