@@ -73,6 +73,36 @@ const EN_STRINGS = {
   '倒计时的默认预设分钟数': 'Default countdown minutes',
   '固定模式：点一次 +N；手动模式：打卡输入框的默认值': 'Fixed: each tap +N; Manual: default value in the check-in input',
   '全不选 = 每天': 'None selected = every day',
+  '预设项目（每天一次）': 'Preset activity (once per day)',
+  '预设项目': 'Preset activities',
+  '每行一个项目，例如：跑步、羽毛球、骑车': 'One activity per line, e.g. running, badminton, cycling',
+  '请至少填写一个预设项目': 'Enter at least one preset activity',
+  '请选择项目': 'Choose an activity',
+  '修改项目': 'Change activity',
+  '撤销打卡': 'Undo check-in',
+  '打卡计划': 'Schedule',
+  '每天 / 指定星期': 'Daily / selected weekdays',
+  '每周灵活达标': 'Flexible weekly goal',
+  '每月灵活达标': 'Flexible monthly goal',
+  '周期目标（天）': 'Check-in days per period',
+  '每周按周一至周日，每月按自然月；一天最多计入一天': 'Weeks run Monday–Sunday; months are calendar months. Each date counts once.',
+  '周期目标必须是 1–{n} 的整数': 'The period goal must be an integer from 1 to {n}',
+  '每周 {n} 天': '{n} days per week',
+  '每月 {n} 天': '{n} days per month',
+  '本周': 'This week',
+  '本月': 'This month',
+  '已达标': 'Goal reached',
+  '{p}已打卡 {a}/{b} 天{done}': '{p}: {a}/{b} days{done}',
+  '打卡保存失败，请重试': 'Could not save check-in. Please retry.',
+  '开始日期不能晚于结束日期': 'The start date must not be after the end date',
+  '固定量、手动填写、计时，或从预设项目中选择（每天一次）': 'Fixed amount, manual amount, timer, or one preset activity per day',
+  '✅ 总打卡 {n} 天': '✅ Total {n} days',
+  '基本信息': 'Basic information',
+  '打卡安排': 'Schedule',
+  '记录方式': 'Recording',
+  '数据读取或备份失败，已停止加载以保护原始数据。请检查文件权限和同步状态。': 'Could not read or back up data. Loading stopped to protect existing files. Check file permissions and sync status.',
+  '保存失败，请重试': 'Could not save. Please retry.',
+  '请先结束正在运行的计时，再修改打卡方式': 'Stop the running timer before changing its check-in mode',
   '单位：ml/h/页…': 'Unit: ml/h/pages…',
   '固定每次打卡量': 'Fixed amount',
   '打卡时手动填写': 'Enter manually',
@@ -256,7 +286,7 @@ const U = (function () {
   function isInPlan(habit, key) {
     if (habit.startDate && key < habit.startDate) return false;
     if (habit.endDate && key > habit.endDate) return false;
-    if (habit.weekly && habit.weekly.length > 0) {
+    if (!isFlexible(habit) && habit.weekly && habit.weekly.length > 0) {
       if (!habit.weekly.includes(parseKey(key).getDay())) return false;
     }
     return true;
@@ -264,6 +294,7 @@ const U = (function () {
 
   // 是否为计数型习惯（打勾型 = target=1 且无单位、无自定义步长、无强度分级）
   function isCounting(h) {
+    if (h.inputMode === 'choice') return false;
     return Boolean((h.target !== 1) || h.unit || (h.step && h.step !== 1) || (h.levels && h.levels.length));
   }
 
@@ -276,8 +307,42 @@ const U = (function () {
     return h.step > 0 ? h.step : 1;
   }
 
+  function recordCount(value) {
+    const n = Number(value && typeof value === 'object' ? value.count : value);
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
   function countOf(habitId, key, records) {
-    return (records[habitId] && records[habitId][key]) || 0;
+    return recordCount(records[habitId] && records[habitId][key]);
+  }
+  function choiceOf(habitId, key, records) {
+    const value = records[habitId] && records[habitId][key];
+    return value && typeof value === 'object' && recordCount(value) > 0 ? String(value.choice || '') : '';
+  }
+  // New activity records include an edit time, so editing/undo survives a refresh.
+  // Older numeric records remain valid without migration.
+  function mergeRecord(local, incoming) {
+    const lt = Number(local && local.updatedAt) || 0;
+    const it = Number(incoming && incoming.updatedAt) || 0;
+    if (lt || it) return it > lt ? incoming : (local === undefined ? incoming : local);
+    return recordCount(incoming) > recordCount(local) ? incoming : local;
+  }
+  function isFlexible(h) { return h.scheduleMode === 'week' || h.scheduleMode === 'month'; }
+  function periodGoal(h) {
+    const max = h.scheduleMode === 'week' ? 7 : 31;
+    return Math.max(1, Math.min(max, Math.floor(Number(h.periodTarget) || 1)));
+  }
+  function periodBounds(h, key) {
+    const d = parseKey(key);
+    if (h.scheduleMode === 'week') {
+      const start = addDays(d, -((d.getDay() + 6) % 7));
+      return { start: dateKey(start), end: dateKey(addDays(start, 6)) };
+    }
+    return { start: dateKey(new Date(d.getFullYear(), d.getMonth(), 1)), end: dateKey(new Date(d.getFullYear(), d.getMonth() + 1, 0)) };
+  }
+  function periodProgress(h, records, key, asOf = todayKey()) {
+    const bounds = periodBounds(h, key);
+    const done = Object.keys(records[h.id] || {}).filter(k => k >= bounds.start && k <= bounds.end && k <= asOf && isInPlan(h, k) && isCompleted(h, k, records)).length;
+    return { ...bounds, done, target: periodGoal(h) };
   }
 
   function isCompleted(habit, key, records) {
@@ -345,13 +410,17 @@ const U = (function () {
   }
   function totalCheckins(habit, records) {
     let sum = 0;
-    for (const k in (records[habit.id] || {})) sum += records[habit.id][k];
+    for (const k in (records[habit.id] || {})) {
+      const count = recordCount(records[habit.id][k]);
+      sum += habit.inputMode === 'choice' ? (count > 0 ? 1 : 0) : count;
+    }
     return sum;
   }
 
   return {
     dateKey, parseDateKey, addDays, diffDays, todayKey, uid,
     isInPlan, isCounting, goalOf, stepOf, countOf, isCompleted,
+    recordCount, choiceOf, mergeRecord, isFlexible, periodGoal, periodBounds, periodProgress,
     computeColorScale,
     currentStreak, longestStreak, monthCompletion, totalCheckins,
   };
@@ -390,9 +459,18 @@ function isCoarsePointer() {
 }
 
 function planText(h) {
+  if (U.isFlexible(h)) return t(h.scheduleMode === 'week' ? '每周 {n} 天' : '每月 {n} 天', { n: U.periodGoal(h) });
   if (h.endDate) return `${h.startDate} ~ ${h.endDate}`;
   if (h.weekly && h.weekly.length) return t('{d} 起 · 每周 {w}', { d: h.startDate, w: h.weekly.map(i => wd(i)).join('') });
   return t('{d} 起', { d: h.startDate });
+}
+
+function progressText(h, records, key) {
+  const p = U.periodProgress(h, records, key);
+  return t('{p}已打卡 {a}/{b} 天{done}', {
+    p: t(h.scheduleMode === 'week' ? '本周' : '本月'), a: p.done, b: p.target,
+    done: p.done >= p.target ? ' · ✓ ' + t('已达标') : '',
+  });
 }
 
 /* =========================================================
@@ -484,7 +562,8 @@ function buildHeatmapCells(anchor, firstDay, habits, records, maxLevel, range) {
           const isCount = U.isCounting(p.habit);
           const goal = U.goalOf(p.habit);
           const u = unitOf(p.habit);
-          return `${p.habit.emoji || p.habit.name} ${p.count}${isCount ? u + '/' + goal + u : ''}`;
+          const choice = U.choiceOf(p.habit.id, key, records);
+          return `${p.habit.emoji || p.habit.name} ${choice || (p.count + (isCount ? u + '/' + goal + u : ''))}`;
         }).join(_lang === 'en' ? ', ' : '，');
       }
       cells.push({ col, row, key, date: d, level, parts, title, isToday: key === today });
@@ -624,11 +703,7 @@ class HabitCheckinPlugin extends Plugin {
     const raw = await this.loadData();
     this.data = Object.assign({}, DEFAULT_DATA, raw || {});
     this.data.settings = Object.assign({}, DEFAULT_DATA.settings, (raw && raw.settings) || {});
-    // 清理旧版/失效设置字段：白名单（DEFAULT_DATA.settings）之外的键直接丢弃，避免历史残留
-    for (const k of Object.keys(this.data.settings)) {
-      if (!(k in DEFAULT_DATA.settings)) delete this.data.settings[k];
-    }
-    this.data.habits = Array.isArray(this.data.habits) ? this.data.habits : [];
+    this.data.habits = Array.isArray(this.data.habits) ? this.data.habits.slice() : [];
     this.data.timers = this.data.timers || {};
     // 界面语言：优先用设置，否则跟随 Obsidian/系统（提前设置，迁移提示等可正确本地化）
     _lang = detectLang(this.data.settings.language);
@@ -638,10 +713,17 @@ class HabitCheckinPlugin extends Plugin {
     this._deletedHabits = new Set();  // 本会话删除的习惯：写盘/合并时清除其残留记录
     this._flushChain = Promise.resolve();
     this._baseSaveData = this.saveData.bind(this); // 原始 saveData，迁移/写盘用
-    await this._initRecords(); // 迁移旧 data.json.records → 按天文件，再全部载入内存
+    try {
+      await this._backupBeforeUpgrade(raw);
+      await this._initRecords();
+    } catch (e) {
+      document.body.classList.remove('habit-checkin-loaded');
+      new Notice(t('数据读取或备份失败，已停止加载以保护原始数据。请检查文件权限和同步状态。'), 10000);
+      throw e;
+    }
     // 包装 saveData：data.json 不再保存 records（打卡记录只走按天文件）
     this.saveData = async (data) => {
-      try { await this._flushRecords(); } catch (e) { console.error('habit-checkin: 写按天记录失败', e); }
+      await this._flushRecords();
       const persisted = Object.assign({}, data);
       delete persisted.records;
       return this._baseSaveData(persisted);
@@ -735,68 +817,85 @@ class HabitCheckinPlugin extends Plugin {
     const a = this.app.vault.adapter;
     if (!(await a.exists(this.recordsDir))) await a.mkdir(this.recordsDir);
   }
-  // 初始化：把 data.json 里旧 records 迁移成按天文件，再全部载入内存（结构不变）
+  get backupDir() {
+    return this.app.vault.configDir + '/plugins/' + this.manifest.id + '/backups/pre-activity-v2';
+  }
+  // Keep an exact snapshot before the first load of existing data with this format.
+  // The completion marker is written last; a failed backup aborts startup before migration.
+  async _backupBeforeUpgrade(raw) {
+    const a = this.app.vault.adapter;
+    const source = this.app.vault.configDir + '/plugins/' + this.manifest.id;
+    const complete = this.backupDir + '/complete.json';
+    if (await a.exists(complete)) return;
+    const hasRecords = await a.exists(this.recordsDir);
+    if (!raw && !hasRecords) return;
+    for (const dir of [source + '/backups', this.backupDir, this.backupDir + '/records']) {
+      if (!(await a.exists(dir))) await a.mkdir(dir);
+    }
+    const metaPath = source + '/data.json';
+    const meta = await a.exists(metaPath) ? await a.read(metaPath) : JSON.stringify(raw || {}, null, 2);
+    await a.write(this.backupDir + '/data.json', meta);
+    const files = hasRecords ? (await a.list(this.recordsDir)).files || [] : [];
+    const names = [];
+    for (const file of files) {
+      const name = file.split('/').pop();
+      if (!/^\d{4}-\d{2}-\d{2}\.json$/.test(name)) continue;
+      await a.write(this.backupDir + '/records/' + name, await a.read(file));
+      names.push(name);
+    }
+    await a.write(complete, JSON.stringify({ createdAt: new Date().toISOString(), records: names }));
+  }
+  async _readDay(path) {
+    const a = this.app.vault.adapter;
+    if (!(await a.exists(path))) return {};
+    const value = JSON.parse(await a.read(path));
+    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('Invalid habit record file: ' + path);
+    return value;
+  }
+  // Migration is fail-closed: do not remove legacy records until all writes AND reads succeed.
   async _initRecords() {
     const a = this.app.vault.adapter;
-    const dir = this.recordsDir;
-    const legacy = (this.data.records && typeof this.data.records === 'object') ? this.data.records : {};
+    const legacy = this.data.records && typeof this.data.records === 'object' ? this.data.records : {};
     const byDay = {};
-    let n = 0;
-    for (const hid in legacy) {
-      const m = legacy[hid];
-      if (!m || typeof m !== 'object') continue;
-      for (const key in m) {
-        const c = Number(m[key]);
-        if (c > 0) { n++; (byDay[key] = byDay[key] || {})[hid] = c; }
+    for (const hid of Object.keys(legacy)) {
+      const entries = legacy[hid];
+      if (!entries || typeof entries !== 'object') continue;
+      for (const key of Object.keys(entries)) {
+        const value = entries[key];
+        if (!(U.recordCount(value) > 0) && !(value && value.updatedAt)) continue;
+        if (!U.parseDateKey(key)) throw new Error('Invalid legacy habit date: ' + key);
+        (byDay[key] = byDay[key] || {})[hid] = value;
       }
     }
-    // 迁移旧版 data.json.records → 按天文件。
-    // 与已有按天文件【合并】而非覆盖（多设备过渡期对端可能已有更新记录）；
-    // 全部写入成功才清空 data.json 旧 records，失败则保留、下次启动重试，绝不丢数据。
-    let migrated = true;
-    if (n > 0) {
-      try {
-        await this._ensureRecordsDir();
-        for (const key in byDay) {
-          const merged = Object.assign({}, byDay[key]);
-          const fp = dir + '/' + key + '.json';
-          let existing = {};
-          try { existing = JSON.parse(await a.read(fp)) || {}; } catch (e) { existing = {}; }
-          for (const hid in existing) {
-            if (hid in merged) merged[hid] = Math.max(merged[hid], existing[hid]);
-            else merged[hid] = existing[hid];
-          }
-          try { await a.write(fp, JSON.stringify(merged)); } catch (e) { migrated = false; console.error('habit-checkin: 写按天记录失败', key, e); }
-        }
-      } catch (e) { migrated = false; console.error('habit-checkin: 迁移旧打卡记录失败', e); }
-    }
+    await this._ensureRecordsDir();
+    // Validate all current files before modifying any of them.
     const records = {};
-    try {
-      await this._ensureRecordsDir();
-      const entries = await a.list(dir);
-      await Promise.all((entries.files || []).map(async f => {
-        const name = f.split('/').pop();
-        if (!/^\d{4}-\d{2}-\d{2}\.json$/.test(name)) return;
-        const key = name.slice(0, 10);
-        let day = {};
-        try { day = JSON.parse(await a.read(f)) || {}; } catch (e) { return; }
-        for (const hid in day) {
-          const c = Number(day[hid]);
-          if (c > 0) (records[hid] = records[hid] || {})[key] = c;
-        }
-      }));
-    } catch (e) { console.error('habit-checkin: 加载按天打卡记录失败', e); }
-    this.data.records = records;
-    if (n > 0 && migrated) {
-      try {
-        const clean = Object.assign({}, this.data);
-        delete clean.records;
-        await this._baseSaveData(clean);
-      } catch (e) { console.error('habit-checkin: 清理旧 records 字段失败', e); }
-      try { new Notice(t('已迁移历史打卡记录到按天分文件，数据完整保留')); } catch (e) {}
-    } else if (n > 0) {
-      console.warn('habit-checkin: 打卡记录迁移未完成，已保留 data.json 旧 records，下次启动将重试');
+    const files = (await a.list(this.recordsDir)).files || [];
+    const days = new Map();
+    for (const file of files) {
+      const name = file.split('/').pop();
+      if (!/^\d{4}-\d{2}-\d{2}\.json$/.test(name)) continue;
+      days.set(name.slice(0, 10), await this._readDay(file));
     }
+    for (const key of Object.keys(byDay)) {
+      const day = Object.assign({}, days.get(key) || {});
+      for (const hid of Object.keys(byDay[key])) day[hid] = U.mergeRecord(byDay[key][hid], day[hid]);
+      await a.write(this.recordsDir + '/' + key + '.json', JSON.stringify(day));
+      days.set(key, day);
+    }
+    for (const [key, day] of days) {
+      for (const hid of Object.keys(day)) {
+        const value = day[hid];
+        if (U.recordCount(value) > 0 || (value && value.updatedAt)) (records[hid] = records[hid] || {})[key] = value;
+      }
+    }
+    if (Object.keys(byDay).length) {
+      const clean = Object.assign({}, this.data);
+      delete clean.records;
+      await this._baseSaveData(clean);
+      new Notice(t('已迁移历史打卡记录到按天分文件，数据完整保留'));
+    }
+    this.data.records = records;
   }
   // 把待落盘日期写为按天文件；串行化避免并发覆盖
   async _flushRecords() {
@@ -810,29 +909,33 @@ class HabitCheckinPlugin extends Plugin {
     const dir = this.recordsDir;
     const records = this.data.records || {};
     const days = [...this._dirtyDays];
-    this._dirtyDays.clear();
     await this._ensureRecordsDir();
     for (const key of days) {
-      const local = {};
-      for (const hid in records) {
-        const c = records[hid] && records[hid][key];
-        if (c && c > 0) local[hid] = c;
+      this._dirtyDays.delete(key);
+      try {
+        const local = {};
+        for (const hid in records) {
+          const c = records[hid] && records[hid][key];
+          if (U.recordCount(c) > 0 || (c && c.updatedAt)) local[hid] = c;
+        }
+        const fp = dir + '/' + key + '.json';
+        const disk = await this._readDay(fp);
+        const merged = {};
+        for (const hid in local) merged[hid] = local[hid]; // 本机编辑过：以本机为准
+        for (const hid in disk) {
+          if (this._deletedHabits.has(hid)) continue;       // 本会话明确删除的习惯不复活
+          if (this._zeroed.has(hid + '|' + key)) continue;  // 本会话清零的不复活
+          if (!(hid in merged)) merged[hid] = disk[hid];    // 采纳对端已同步下来的记录
+        }
+        if (!Object.keys(merged).length) {
+          if (await a.exists(fp)) await a.remove(fp);
+          continue;
+        }
+        await a.write(fp, JSON.stringify(merged));
+      } catch (e) {
+        this._dirtyDays.add(key);
+        throw e;
       }
-      let disk = {};
-      const fp = dir + '/' + key + '.json';
-      try { disk = JSON.parse(await a.read(fp)) || {}; } catch (e) { disk = {}; }
-      const merged = {};
-      for (const hid in local) merged[hid] = local[hid]; // 本机编辑过：以本机为准
-      for (const hid in disk) {
-        if (this._deletedHabits.has(hid)) continue;       // 本会话明确删除的习惯不复活
-        if (this._zeroed.has(hid + '|' + key)) continue;  // 本会话清零的不复活
-        if (!(hid in merged)) merged[hid] = disk[hid];    // 采纳对端已同步下来的记录
-      }
-      if (!Object.keys(merged).length) {
-        try { await a.remove(fp); } catch (e) {}
-        continue;
-      }
-      await a.write(fp, JSON.stringify(merged));
     }
   }
   // 扫描按天目录，把对端同步下来的新记录并入内存（窗口聚焦 / 视图打开时调用）
@@ -849,15 +952,16 @@ class HabitCheckinPlugin extends Plugin {
         if (!/^\d{4}-\d{2}-\d{2}\.json$/.test(name)) continue;
         const key = name.slice(0, 10);
         let day = {};
-        try { day = JSON.parse(await a.read(f)) || {}; } catch (e) { continue; }
+        try { day = await this._readDay(f); } catch (e) { console.error('habit-checkin: 无法读取打卡记录', f, e); continue; }
         for (const hid in day) {
           if (this._deletedHabits.has(hid)) continue;
           if (this._zeroed.has(hid + '|' + key)) continue;
-          const c = Number(day[hid]);
-          if (!(c > 0)) continue;
+          const c = day[hid];
+          if (!(U.recordCount(c) > 0) && !(c && c.updatedAt)) continue;
           const cur = records[hid] && records[hid][key];
-          if (cur === undefined || c > cur) {
-            (records[hid] = records[hid] || {})[key] = c;
+          const merged = U.mergeRecord(cur, c);
+          if (merged !== cur && JSON.stringify(merged) !== JSON.stringify(cur)) {
+            (records[hid] = records[hid] || {})[key] = merged;
             changed = true;
           }
         }
@@ -991,6 +1095,7 @@ class HabitCheckinPlugin extends Plugin {
   async toggleCheckin(habitId, key, dec, amount) {
     const h = this.data.habits.find(x => x.id === habitId);
     if (!h) return;
+    if (h.inputMode === 'choice') return; // Only the explicit activity operation may edit choice records.
     const cur = U.countOf(habitId, key, this.data.records);
     const isCount = U.isCounting(h);
     const step = (amount && amount > 0) ? amount : U.stepOf(h);
@@ -1010,6 +1115,30 @@ class HabitCheckinPlugin extends Plugin {
     if (this._dirtyDays) this._dirtyDays.add(key); // 标记该天待写盘（按天分文件）
 
     await this.saveData(this.data);
+    this.emitDataChange();
+  }
+
+  async setChoice(habitId, key, choice) {
+    const h = this.data.habits.find(x => x.id === habitId);
+    if (!h || h.inputMode !== 'choice' || !U.parseDateKey(key) || key > U.todayKey() || !U.isInPlan(h, key)) return;
+    if (choice !== null && !(h.choices || []).includes(choice)) return;
+    const records = this.data.records;
+    const previous = records[habitId] && records[habitId][key];
+    (records[habitId] = records[habitId] || {})[key] = {
+      count: choice === null ? 0 : 1,
+      choice: choice === null ? '' : choice,
+      updatedAt: Math.max(Date.now(), (Number(previous && previous.updatedAt) || 0) + 1),
+    };
+    this._zeroed.delete(habitId + '|' + key);
+    this._dirtyDays.add(key);
+    try {
+      await this._flushRecords(); // Activity edits do not change settings or timer metadata.
+    } catch (e) {
+      if (previous === undefined) delete records[habitId][key];
+      else records[habitId][key] = previous;
+      this._dirtyDays.add(key);
+      throw e;
+    }
     this.emitDataChange();
   }
 
@@ -1152,9 +1281,9 @@ class HabitView extends ItemView {
     // 顶部今日概览
     const head = contentEl.createDiv({ cls: 'habit-dash-head' });
     head.createSpan({ cls: 'habit-dash-date', text: dateLabel(now) });
-    const planToday = habits.filter(h => U.isInPlan(h, today));
+    const planToday = habits.filter(h => !U.isFlexible(h) && U.isInPlan(h, today));
     const doneToday = planToday.filter(h => U.isCompleted(h, today, records));
-    head.createSpan({ cls: 'habit-dash-progress', text: t('今日完成 {a}/{b}', { a: doneToday.length, b: planToday.length }) });
+    if (planToday.length) head.createSpan({ cls: 'habit-dash-progress', text: t('今日完成 {a}/{b}', { a: doneToday.length, b: planToday.length }) });
     if (planToday.length) {
       const bar = contentEl.createDiv({ cls: 'habit-progress-bar' });
       bar.createDiv({ cls: 'habit-progress-fill', attr: { style: `width:${Math.round(doneToday.length / planToday.length * 100)}%` } });
@@ -1199,10 +1328,13 @@ class HabitView extends ItemView {
       const s = settings;
       const title = block.createDiv({ cls: 'habit-block-head' });
       title.createSpan({ cls: 'habit-block-name', text: `${h.emoji || ''} ${h.name}` });
-      if (s.showStatStreak !== false) title.createSpan({ cls: 'habit-stat-item', text: t('🔥 连续 {n} 天', { n: U.currentStreak(h, records, today) }) });
-      if (s.showStatLongest !== false) title.createSpan({ cls: 'habit-stat-item', text: t('🏆 最长 {n} 天', { n: U.longestStreak(h, records) }) });
-      if (s.showStatMonth !== false) title.createSpan({ cls: 'habit-stat-item', text: t('📅 本月 {a}/{b}', { a: comp.done, b: comp.plan }) });
-      if (s.showStatTotal !== false) title.createSpan({ cls: 'habit-stat-item', text: t('✅ 总 {n}{u}', { n: U.totalCheckins(h, records), u: unitOf(h) }) });
+      if (U.isFlexible(h)) title.createSpan({ cls: 'habit-stat-item', text: progressText(h, records, today) });
+      if (!U.isFlexible(h) && s.showStatStreak !== false) title.createSpan({ cls: 'habit-stat-item', text: t('🔥 连续 {n} 天', { n: U.currentStreak(h, records, today) }) });
+      if (!U.isFlexible(h) && s.showStatLongest !== false) title.createSpan({ cls: 'habit-stat-item', text: t('🏆 最长 {n} 天', { n: U.longestStreak(h, records) }) });
+      if (!U.isFlexible(h) && s.showStatMonth !== false) title.createSpan({ cls: 'habit-stat-item', text: t('📅 本月 {a}/{b}', { a: comp.done, b: comp.plan }) });
+      if (s.showStatTotal !== false) title.createSpan({ cls: 'habit-stat-item', text: !U.isCounting(h)
+        ? t('✅ 总打卡 {n} 天', { n: U.totalCheckins(h, records) })
+        : t('✅ 总 {n}{u}', { n: U.totalCheckins(h, records), u: unitOf(h) }) });
       const body = block.createDiv({ cls: 'habit-block-body' });
       renderHeatmap(body, {
         habits: [h],
@@ -1307,7 +1439,7 @@ class HabitTodayView extends ItemView {
     // 头部：日期选择（日期已由 input 展示，不再另显文字）
     const head = contentEl.createDiv({ cls: 'habit-today-head' });
     const dateRow = head.createDiv({ cls: 'habit-today-date-row' });
-    const dateInput = dateRow.createEl('input', { attr: { type: 'date', value: key } });
+    const dateInput = dateRow.createEl('input', { attr: { type: 'date', value: key, max: today } });
     dateInput.addEventListener('change', () => { if (dateInput.value) this.setDate(dateInput.value); });
     if (key !== today) {
       dateRow.createEl('button', { cls: 'habit-btn habit-step-btn', text: t('今天') })
@@ -1315,10 +1447,10 @@ class HabitTodayView extends ItemView {
     }
 
     // 完成度文本：与日期选择同一行，靠右对齐；进度条仍在下方
-    const planHabits = habits.filter(h => U.isInPlan(h, key));
+    const planHabits = habits.filter(h => !U.isFlexible(h) && U.isInPlan(h, key));
     const doneHabits = planHabits.filter(h => U.isCompleted(h, key, records));
     const pct = planHabits.length ? Math.round(doneHabits.length / planHabits.length * 100) : 0;
-    dateRow.createDiv({ cls: 'habit-today-pct', text: t('完成 {a}/{b} · {p}%', { a: doneHabits.length, b: planHabits.length, p: pct }) });
+    if (planHabits.length) dateRow.createDiv({ cls: 'habit-today-pct', text: t('完成 {a}/{b} · {p}%', { a: doneHabits.length, b: planHabits.length, p: pct }) });
     if (planHabits.length) {
       const bar = contentEl.createDiv({ cls: 'habit-progress-bar' });
       bar.createDiv({ cls: 'habit-progress-fill', attr: { style: `width:${pct}%` } });
@@ -1347,7 +1479,34 @@ class HabitTodayView extends ItemView {
       const u = unitOf(h);
       const fmt = n => `${n}${u}`;
       const ctl = row.createDiv({ cls: 'habit-today-ctl' });
-      if (!isCount) {
+      if (U.isFlexible(h)) info.createSpan({ cls: 'habit-today-desc', text: progressText(h, records, key) });
+      if (h.inputMode === 'choice') {
+        row.addClass('is-choice');
+        const selected = U.choiceOf(h.id, key, records);
+        if (cur > 0) info.createSpan({ cls: 'habit-today-desc', text: selected || t('✓ 已打卡') });
+        const select = ctl.createEl('select', { cls: 'habit-choice-select', attr: { 'aria-label': t('预设项目') } });
+        select.createEl('option', { text: t('请选择项目'), attr: { value: '' } });
+        const choices = [...new Set([...(h.choices || []), ...(selected ? [selected] : [])])];
+        choices.forEach(choice => select.createEl('option', { text: choice, attr: { value: choice } }));
+        select.value = selected;
+        const save = ctl.createEl('button', { cls: 'habit-btn habit-check-btn', text: cur > 0 ? t('修改项目') : t('打卡') });
+        save.disabled = !select.value || key > today;
+        select.addEventListener('change', () => { save.disabled = !select.value || select.value === selected || key > today; });
+        const act = async choice => {
+          save.disabled = true;
+          select.disabled = true;
+          if (undo) undo.disabled = true;
+          try { await this.plugin.setChoice(h.id, key, choice); }
+          catch (e) { new Notice(t('打卡保存失败，请重试')); this.rerender(); }
+        };
+        save.addEventListener('click', () => act(select.value));
+        let undo = null;
+        if (cur > 0) {
+          save.disabled = true;
+          undo = ctl.createEl('button', { cls: 'habit-btn', text: t('撤销打卡') });
+          undo.addEventListener('click', () => act(null));
+        }
+      } else if (!isCount) {
         const btn = ctl.createEl('button', { cls: 'habit-btn habit-check-btn' + (done ? ' is-done' : ''), text: done ? t('✓ 已打卡') : t('打卡') });
         btn.addEventListener('click', () => this.plugin.toggleCheckin(h.id, key, false)); // 再点一次可撤销
       } else if (h.inputMode === 'timer') {
@@ -1407,6 +1566,7 @@ class HabitFormModal extends Modal {
   }
   onOpen() {
     const { contentEl } = this;
+    this.modalEl.addClass('habit-form-modal');
     contentEl.empty();
     contentEl.createEl('h3', { text: this.habit ? t('编辑习惯') : t('新建习惯') });
 
@@ -1426,6 +1586,9 @@ class HabitFormModal extends Modal {
       unit: this.habit ? (this.habit.unit || '') : '',
       inputMode: this.habit ? (this.habit.inputMode || 'fixed') : 'fixed',
       timerType: this.habit ? (this.habit.timerType || 'stopwatch') : 'stopwatch',
+      choices: this.habit ? [...(this.habit.choices || [])] : [],
+      scheduleMode: this.habit ? (this.habit.scheduleMode || 'daily') : 'daily',
+      periodTarget: this.habit ? (this.habit.periodTarget || 3) : 3,
     };
 
     new Setting(contentEl)
@@ -1492,7 +1655,7 @@ class HabitFormModal extends Modal {
     targetSetting.controlEl.appendChild(targetUnitEl);
 
     // 强度分级
-    new Setting(contentEl)
+    const levelsSetting = new Setting(contentEl)
       .setName(t('强度分级'))
       .setDesc(t('开启后按次数区间显示不同颜色，打卡变为次数叠加（点一次 +1）'))
       .addToggle(tgl => tgl.setValue(form.useLevels).onChange(v => {
@@ -1551,11 +1714,12 @@ class HabitFormModal extends Modal {
     // 打卡方式：固定每次打卡量 / 手动填写 / 计时器
     const modeSetting = new Setting(contentEl)
       .setName(t('打卡方式'))
-      .setDesc(t('固定：点 +/− 加固定值；手动：先填数量再点 +/−；计时：分钟计时'))
+      .setDesc(t('固定量、手动填写、计时，或从预设项目中选择（每天一次）'))
       .addDropdown(d => d
         .addOption('fixed', t('固定每次打卡量'))
         .addOption('manual', t('打卡时手动填写'))
         .addOption('timer', t('计时器（分钟）'))
+        .addOption('choice', t('预设项目（每天一次）'))
         .setValue(form.inputMode || 'fixed')
         .onChange(v => {
           form.inputMode = v;
@@ -1569,6 +1733,7 @@ class HabitFormModal extends Modal {
           } else {
             stepSetting.setDesc(t('固定模式：点一次 +N；手动模式：打卡输入框的默认值'));
           }
+          updateVisibility();
         }));
 
     // 计时类型（打卡方式=计时器时显示）
@@ -1620,14 +1785,80 @@ class HabitFormModal extends Modal {
       chips.appendChild(lab);
     }
 
+    const choiceSetting = new Setting(contentEl)
+      .setName(t('预设项目'))
+      .setDesc(t('每行一个项目，例如：跑步、羽毛球、骑车'));
+    const choiceInput = choiceSetting.controlEl.createEl('textarea', { cls: 'habit-choice-editor' });
+    choiceInput.value = form.choices.join('\n');
+    choiceInput.rows = 4;
+    choiceInput.addEventListener('input', () => { form.choices = choiceInput.value.split(/\r?\n/); });
+
     new Setting(contentEl)
-      .addButton(b => b.setButtonText(t('保存')).setCta().onClick(() => { this.save(form); }))
-      .addButton(b => b.setButtonText(t('取消')).onClick(() => this.close()));
+      .setName(t('打卡计划'))
+      .addDropdown(d => d
+        .addOption('daily', t('每天 / 指定星期'))
+        .addOption('week', t('每周灵活达标'))
+        .addOption('month', t('每月灵活达标'))
+        .setValue(form.scheduleMode)
+        .onChange(v => { form.scheduleMode = v; updateVisibility(); }));
+    const periodSetting = new Setting(contentEl)
+      .setName(t('周期目标（天）'))
+      .setDesc(t('每周按周一至周日，每月按自然月；一天最多计入一天'));
+    const periodInput = periodSetting.controlEl.createEl('input', { attr: { type: 'number', min: '1', step: '1', value: String(form.periodTarget) } });
+    periodInput.addEventListener('input', () => { form.periodTarget = Number(periodInput.value); });
+
+    function updateVisibility() {
+      const choice = form.inputMode === 'choice';
+      const flexible = form.scheduleMode === 'week' || form.scheduleMode === 'month';
+      choiceSetting.settingEl.toggle(choice);
+      targetSetting.settingEl.toggle(!choice);
+      stepSetting.settingEl.toggle(!choice);
+      levelsSetting.settingEl.toggle(!choice);
+      presetRow.toggle(!choice && form.useLevels);
+      levelBox.toggle(!choice && form.useLevels);
+      timerTypeSetting.settingEl.toggle(form.inputMode === 'timer');
+      wk.settingEl.toggle(!flexible);
+      periodSetting.settingEl.toggle(flexible);
+      periodInput.max = form.scheduleMode === 'week' ? '7' : '31';
+    }
+    updateVisibility();
+
+    // Match the plugin settings page: individual setting cards, without section dividers.
+    const rows = new Map([...contentEl.querySelectorAll(':scope > .setting-item')]
+      .map(el => [el.querySelector('.setting-item-name').textContent, el]));
+    const fields = contentEl.createDiv({ cls: 'habit-form-fields' });
+    for (const name of ['名称', '图标', '颜色', '开始日期', '结束日期', '打卡计划',
+      '每周计划', '周期目标（天）', '打卡方式', '预设项目', '每日目标', '计时类型', '每次打卡量', '强度分级']) {
+      const row = rows.get(t(name));
+      if (row) fields.appendChild(row);
+      if (name === '强度分级') { fields.appendChild(presetRow); fields.appendChild(levelBox); }
+    }
+    const actions = new Setting(contentEl)
+      .addButton(b => b.setButtonText(t('取消')).onClick(() => this.close()))
+      .addButton(b => {
+        this._saveButton = b;
+        b.setButtonText(t('保存')).setCta().onClick(() => this.save(form));
+      });
+    actions.settingEl.addClass('habit-form-actions');
   }
 
-  save(form) {
+  async save(form) {
+    if (this._saving) return;
     if (!form.name.trim()) { new Notice(t('请输入习惯名称')); return; }
+    if (form.endDate && form.startDate > form.endDate) { new Notice(t('开始日期不能晚于结束日期')); return; }
+    const choices = [...new Set((form.choices || []).map(x => x.trim()).filter(Boolean))];
+    if (form.inputMode === 'choice' && !choices.length) { new Notice(t('请至少填写一个预设项目')); return; }
+    const scheduleMode = ['week', 'month'].includes(form.scheduleMode) ? form.scheduleMode : 'daily';
+    const max = scheduleMode === 'week' ? 7 : 31;
+    if (scheduleMode !== 'daily' && (!Number.isInteger(form.periodTarget) || form.periodTarget < 1 || form.periodTarget > max)) {
+      new Notice(t('周期目标必须是 1–{n} 的整数', { n: max })); return;
+    }
+    if (form.inputMode === 'choice') { form.target = 1; form.step = 1; form.unit = ''; form.useLevels = false; }
     const data = this.plugin.data;
+    if (this.habit && this.habit.inputMode !== form.inputMode && this.plugin._timers && this.plugin._timers[this.habit.id]) {
+      new Notice(t('请先结束正在运行的计时，再修改打卡方式')); return;
+    }
+    const previousHabits = data.habits.map(h => Object.assign({}, h));
     const levels = form.useLevels ? form.levels
       .map(l => ({ max: Math.max(0.1, parseFloat(l.max) || 1), color: /^#[0-9a-f]{3,8}$/i.test(l.color || '') ? l.color : '#4ade80' }))
       .sort((a, b) => a.max - b.max) : [];
@@ -1644,9 +1875,10 @@ class HabitFormModal extends Modal {
           levels,
           step: Math.max(0.1, parseFloat(form.step) || 1),
           unit: form.inputMode === 'timer' ? timerUnit() : (form.unit || ''),
-          inputMode: form.inputMode === 'manual' ? 'manual' : form.inputMode === 'timer' ? 'timer' : 'fixed',
+          inputMode: ['manual', 'timer', 'choice'].includes(form.inputMode) ? form.inputMode : 'fixed',
           timerType: form.inputMode === 'timer' ? (form.timerType || 'stopwatch') : null,
           weekly: form.weekly,
+          choices, scheduleMode, periodTarget: form.periodTarget,
         });
       }
     } else {
@@ -1661,18 +1893,29 @@ class HabitFormModal extends Modal {
         levels,
         step: Math.max(0.1, parseFloat(form.step) || 1),
         unit: form.inputMode === 'timer' ? timerUnit() : (form.unit || ''),
-        inputMode: form.inputMode === 'manual' ? 'manual' : form.inputMode === 'timer' ? 'timer' : 'fixed',
+        inputMode: ['manual', 'timer', 'choice'].includes(form.inputMode) ? form.inputMode : 'fixed',
         timerType: form.inputMode === 'timer' ? (form.timerType || 'stopwatch') : null,
         weekly: form.weekly,
+        choices, scheduleMode, periodTarget: form.periodTarget,
         sort: data.habits.length,
         createdAt: U.todayKey(),
       });
     }
-    this.plugin.saveData(data).then(() => {
+    this._saving = true;
+    if (this._saveButton) this._saveButton.setDisabled(true);
+    try {
+      await this.plugin.saveData(data);
       this.plugin.emitDataChange();
       if (this.plugin.settingTab) this.plugin.settingTab.display(); // 新建/编辑后立即刷新设置页
-    });
-    this.close();
+      this.close();
+    } catch (e) {
+      data.habits = previousHabits;
+      new Notice(t('保存失败，请重试'));
+      console.error('habit-checkin: 保存习惯失败', e);
+    } finally {
+      this._saving = false;
+      if (this._saveButton) this._saveButton.setDisabled(false);
+    }
   }
 
   onClose() { this.contentEl.empty(); }
@@ -1688,6 +1931,7 @@ class HabitCheckinSettingTab extends PluginSettingTab {
   }
   display() {
     const { containerEl } = this;
+    containerEl.addClass('habit-settings');
     containerEl.empty();
     containerEl.createEl('h2', { text: t('习惯打卡') });
     containerEl.createEl('p', { text: t('新建/管理习惯，主视图看热力图；点习惯行「复制」图标，可把该习惯的热力图嵌入任意笔记。'), cls: 'setting-item-description' });
@@ -1743,11 +1987,6 @@ class HabitCheckinSettingTab extends PluginSettingTab {
     containerEl.createEl('h3', { text: t('功能图标（左侧栏）') });
     const iconSetting = (name, desc, keyEnabled, keyIcon, defIcon) => {
       const st = new Setting(containerEl).setName(name).setDesc(desc);
-      st.addToggle(t => t.setValue(this.plugin.data.settings[keyEnabled] !== false).onChange(async v => {
-        this.plugin.data.settings[keyEnabled] = v;
-        await this.plugin.saveData(this.plugin.data);
-        this.plugin._setupRibbonIcons();
-      }));
       st.addDropdown(d => {
         for (const ic of ICON_OPTIONS) d.addOption(ic, ic);
         d.setValue(this.plugin.data.settings[keyIcon] || defIcon).onChange(async v => {
@@ -1756,6 +1995,12 @@ class HabitCheckinSettingTab extends PluginSettingTab {
           this.plugin._setupRibbonIcons();
         });
       });
+      st.addToggle(t => t.setValue(this.plugin.data.settings[keyEnabled] !== false).onChange(async v => {
+        this.plugin.data.settings[keyEnabled] = v;
+        await this.plugin.saveData(this.plugin.data);
+        this.plugin._setupRibbonIcons();
+      }));
+      st.settingEl.addClass('habit-icon-setting');
     };
     iconSetting(t('主视图图标'), t('打开「习惯打卡统计」'), 'ribbonMain', 'ribbonMainIcon', 'calendar-check');
     iconSetting(t('今日打卡图标'), t('右侧栏「今日打卡」列表'), 'ribbonToday', 'ribbonTodayIcon', 'check-square');

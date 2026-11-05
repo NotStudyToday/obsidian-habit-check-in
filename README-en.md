@@ -6,7 +6,7 @@
 
 > An Obsidian plugin: **one-click check-in** from the right sidebar, supporting **single / goal / timer** check-in modes, with **GitHub-style heatmaps**, **intensity-level colors**, **Calendar plugin integration**, and **embeddable heatmaps** in any note.
 
-![Main page](main-page.png)
+![Main page](assets/main-page.png)
 
 ## ✨ Features
 
@@ -15,29 +15,39 @@
 **① Single check-in**
 Set a daily check-in item; click the button to toggle between *checked* / *unchecked*.
 
-![Single check-in](checkin-single.gif)
+![Single check-in](assets/checkin-single.gif)
 
 **② Goal check-in**
 Set a daily goal, e.g. *"drink 1000 ml of water every day"*. Customize the amount added per check-in and click **+** to accumulate, or manually enter a single amount.
 
-![Goal check-in](checkin-target.gif)
+![Goal check-in](assets/checkin-target.gif)
 
 **③ Timer check-in**
 Supports **count-up** (stopwatch) and **countdown** modes. For countdown you can set a custom duration (e.g. 45 minutes); click **Start** to begin, and the elapsed time is auto-recorded when it ends.
 
-![Timer check-in](checkin-timer.gif)
+![Timer check-in](assets/checkin-timer.gif)
 
 ### 2. Calendar plugin integration
 
 After a check-in, the date is automatically marked with a dot in the Calendar plugin — at a glance.
 
-![Calendar integration](calendar-link.png)
+![Calendar integration](assets/calendar-link.png)
+
+### Preset activities and flexible goals (v0.1.7)
+
+- Choose **Preset activity (once per day)** when creating/editing a habit, and enter one activity per line, such as running, badminton, and cycling.
+- Pick an activity and check in. A date has at most one activity record; **Change activity** and **Undo check-in** never add a second check-in. Past dates can be filled in too.
+- Select a daily/weekday schedule, a **flexible weekly goal**, or a **flexible monthly goal**. Weekly periods run Monday–Sunday; monthly periods follow calendar months. A date counts once. Existing amount/timer habits count dates that meet their daily goal.
+- The heatmap keeps its original daily display: checked-in dates are colored, other dates remain empty, and tooltips include activity details. No weekly/monthly badges or goal indicators are added to the heatmap. Period progress appears in the habit header and sidebar instead. Monthly goals do not automatically shrink for February or partial periods.
+- Version 0.1.7 remains compatible with numeric records; new activity records store count, activity name, and edit time in the day's file. Editing the preset list preserves historical activity names.
+- Update only `main.js`, `manifest.json`, and `styles.css`; retain `data.json`, `records/`, and `backups/`. The first load of existing data creates an original-data snapshot in `backups/pre-activity-v2/`; `complete.json` marks success. Backup/read failures stop loading instead of treating unreadable records as empty. This snapshot is created once, is not a continuous backup, and must not be committed to Git.
+- Existing check-in modes, weekday schedules, goals, units, and historical amounts are not automatically converted. Legacy embedded records are removed from metadata only after migration succeeds in full; interrupted migration can be retried. Restore the pre-upgrade snapshot if rolling back: older releases may not understand the new activity records.
 
 ### 3. Intensity-level colors
 
 Add your own intensity levels, each with a value range and color; the heatmap is color-coded by intensity automatically. With levels enabled, the **daily goal** stays customizable (it defaults to the highest level); completion is judged against your goal, and levels only drive the heatmap color depth.
 
-![Intensity levels](intensity-levels.png)
+![Intensity levels](assets/intensity-levels.png)
 
 ## 📦 Installation
 
@@ -73,19 +83,19 @@ For users who want to try new features as soon as they ship.
 
 1. Settings → **Habit Check-in** → **+ New habit**
 
-![Create habit](create-habit-1.png)
+![Create habit](assets/create-habit-1.png)
 
 2. Fill in the basic info: **name**, **icon** (Emoji supported), **check-in mode**, **amount per check-in**, etc.
 
-![Basic info](create-habit-2.png)
+![Basic info](assets/create-habit-2.png)
 
 3. For intensity levels: toggle on **Intensity levels** and set the **level**, **value**, and **color** for each.
 
-![Intensity settings](create-habit-3.png)
+![Intensity settings](assets/create-habit-3.png)
 
 4. Click **Save** and you're done — check in from the **right sidebar** from now on.
 
-![Check-in view](create-habit-4.png)
+![Check-in view](assets/create-habit-4.png)
 
 ### View statistics
 

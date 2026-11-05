@@ -1,6 +1,18 @@
 /* ===== Habit Check-in 样式 ===== */
 /* 全部使用 Obsidian CSS 变量，适配深浅主题 */
 
+/* Activity choices and flexible weekly/monthly goals. */
+.habit-choice-select { max-width: 160px; min-width: 90px; }
+.habit-choice-editor { width: 240px; max-width: 100%; resize: vertical; }
+.habit-today-row .habit-today-ctl { flex-wrap: wrap; }
+.habit-today-row.is-choice { flex-wrap: wrap; }
+.habit-today-row.is-choice .habit-today-info { flex: 1 1 160px; }
+.habit-today-row.is-choice .habit-today-ctl { flex: 0 1 auto; max-width: 100%; }
+@media (max-width: 520px) {
+  .habit-choice-select { max-width: 110px; }
+  .habit-choice-editor { width: 170px; }
+}
+
 /* ---- 通用按钮（右侧栏打卡、主视图顶部） ---- */
 .habit-btn {
   padding: 3px 10px;
@@ -571,3 +583,136 @@ body.is-mobile .habit-sort-row .setting-item-control { flex-wrap: wrap; gap: 4px
 body.is-mobile .habit-heatmap-days { position: sticky; left: 0; z-index: 2; background: var(--background-primary); }
 body.is-mobile .habit-today-row { flex-wrap: wrap; }
 body.is-mobile .habit-today-ctl { flex-wrap: wrap; }
+
+/* Unified forms, settings and sidebar. Container queries follow the actual
+   pane width, including a narrow desktop sidebar in a wide app window. */
+.modal.habit-form-modal {
+  width: 760px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100dvh - 40px);
+  border-radius: var(--radius-l);
+  padding: 24px 28px;
+}
+.habit-form-modal .modal-content {
+  container: habit-form / inline-size;
+  overflow-y: auto;
+  overflow-x: hidden;
+  margin: 0;
+  padding: 0 2px;
+  scrollbar-gutter: stable;
+}
+.habit-form-modal .modal-content > h3 { margin: 0 0 20px; font-size: 20px; color: var(--text-normal); }
+.habit-form-fields .setting-item {
+  display: flex;
+  gap: 16px;
+  margin: 0 0 8px !important;
+  padding: 16px !important;
+  align-items: center;
+  border: 0 !important;
+  border-radius: 10px !important;
+  background: var(--background-secondary) !important;
+}
+.habit-form-fields .setting-item-info { flex: 1 1 0; }
+.habit-form-fields .setting-item-control { flex: 0 1 300px; max-width: 48%; }
+.habit-form-modal .setting-item-info,
+.habit-settings .setting-item-info { min-width: 0; overflow-wrap: anywhere; }
+.habit-form-modal .setting-item-description { margin-top: 4px; line-height: 1.6; }
+.habit-form-modal .setting-item-control {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.habit-form-modal .setting-item-control > input,
+.habit-form-modal .setting-item-control > select,
+.habit-form-modal .setting-item-control > textarea { max-width: 100%; box-sizing: border-box; }
+.habit-form-modal .setting-item-control > input[type="text"] {
+  flex: 1 1 140px;
+  min-width: 0;
+  width: 180px !important;
+}
+.habit-form-modal .setting-item-control > input[type="number"] { width: 104px !important; }
+.habit-form-modal .setting-item-control > input[type="date"] { min-width: 0; width: 164px; }
+.habit-form-modal .setting-item-control > input[type="color"] {
+  width: 32px !important;
+  height: 32px;
+  flex: 0 0 32px;
+}
+.habit-form-modal .setting-item-control > select { width: 100%; min-width: 0; }
+.habit-form-modal .habit-choice-editor { width: 100%; min-height: 112px; line-height: 1.6; }
+.habit-form-modal .habit-weekly { gap: 6px; }
+.habit-form-modal .habit-weekly-chip { padding: 4px 8px; margin: 0; white-space: nowrap; flex: 0 0 auto; }
+.habit-form-modal .habit-weekly-chip input[type="checkbox"] { width: 16px !important; height: 16px !important; flex: 0 0 16px; margin: 0; }
+.habit-form-modal .habit-level-row { flex-wrap: wrap; }
+.habit-form-modal .habit-preset-row { padding: 10px; }
+.habit-form-modal .habit-form-actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--background-primary) !important;
+  padding: 14px 0 0;
+  margin: 0;
+  border-top: 0;
+  z-index: 2;
+}
+.habit-form-actions .setting-item-info { display: none; }
+.habit-form-modal .habit-form-actions .setting-item-control { justify-content: flex-end; flex-direction: row; flex-wrap: nowrap; }
+.habit-form-actions button { min-width: 88px; width: auto !important; flex: 0 0 auto; }
+.habit-settings { container: habit-settings / inline-size; }
+.habit-settings .setting-item { gap: 16px; }
+.habit-settings .setting-item-control { flex-wrap: wrap; gap: 8px; min-width: 0; }
+.habit-settings .setting-item-name { line-height: 1.5; }
+.habit-settings .setting-item-description { line-height: 1.6; }
+.habit-btn { min-height: 30px; border-radius: var(--radius-s); }
+.habit-btn:disabled { opacity: .5; cursor: default; }
+.habit-choice-select, .habit-amt-input { min-height: 30px; border-radius: var(--radius-s); }
+.habit-today-row { flex-wrap: wrap; gap: 10px; padding: 10px 4px; }
+.habit-today-info { flex: 1 1 140px; }
+.habit-today-row .habit-today-ctl { max-width: 100%; flex: 0 1 auto; }
+.habit-today-desc { line-height: 1.5; overflow-wrap: anywhere; }
+.habit-choice-select { text-overflow: ellipsis; }
+.habit-block-head { gap: 8px 14px; }
+.habit-stat-item { font-size: var(--font-ui-small); color: var(--text-muted); }
+.habit-legend-item { white-space: normal; }
+@container habit-form (max-width: 560px) {
+  .habit-form-fields .setting-item { flex-direction: column; align-items: stretch; gap: 10px; }
+  .habit-form-fields .setting-item-control { flex: 0 1 auto; width: 100%; max-width: 100%; }
+  .habit-form-modal .setting-item-control > input[type="text"] { flex-basis: 100%; }
+}
+@container habit-settings (max-width: 520px) {
+  .habit-settings .setting-item { flex-wrap: wrap; gap: 10px; }
+  .habit-settings .setting-item-info { flex: 1 1 100%; }
+  .habit-settings .setting-item-control { justify-content: flex-start; }
+}
+@media (max-width: 520px) {
+  .modal.habit-form-modal { padding: 20px 16px; max-width: calc(100vw - 16px); }
+}
+
+/* Explicit borders remain visible with themes that draw dropdowns using shadows. */
+.habit-settings select,
+.habit-form-modal select,
+.habit-choice-select {
+  border: 1px solid var(--background-modifier-border-hover, #bfc4cc) !important;
+  border-radius: var(--radius-s);
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 1px var(--background-modifier-border-hover, #bfc4cc) !important;
+  box-sizing: border-box;
+}
+.habit-settings select:focus-visible,
+.habit-form-modal select:focus-visible,
+.habit-choice-select:focus-visible {
+  outline: 2px solid var(--interactive-accent);
+  outline-offset: 2px;
+}
+.habit-settings .habit-icon-setting .setting-item-control {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+.habit-settings .habit-icon-setting .checkbox-container {
+  flex: 0 0 auto;
+  margin-inline-start: auto;
+}
+.habit-settings .habit-icon-setting select:not(.is-measuring) { min-width: 0; max-width: calc(100% - 48px); }
+@container habit-settings (max-width: 520px) {
+  .habit-settings .habit-icon-setting .setting-item-control { width: 100%; }
+}
